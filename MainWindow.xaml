@@ -1,0 +1,144 @@
+﻿<Window x:Class="MusicPlayerWPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MusicPlayerWPF"
+        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="MusicPlayerWPF" Height="500" Width="900"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        Background="{DynamicResource MaterialDesignPaper}">
+    <!-- Background="{DynamicResource WindowBackgroundBrush}"> -->
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#2D2D30"/>
+        <SolidColorBrush x:Key="ElementBackgroundBrush" Color="#3E3E40"/>
+        <SolidColorBrush x:Key="ForegroundColorBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#505050"/>
+        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="ButtonHoverBackgroundBrush" Color="#606060"/>
+        <SolidColorBrush x:Key="SliderThumbBackgroundBrush" Color="#505050"/>
+        <SolidColorBrush x:Key="SliderTrackBackgroundBrush" Color="#606060"/>
+        <SolidColorBrush x:Key="SliderTrackProgressBrush" Color="#007ACC"/>
+
+        <Style TargetType="StackPanel">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Noto Sans CJK TC"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Margin" Value="5"/>
+            <!-- <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/> -->
+        </Style>
+
+        <!--
+        <Style TargetType="Button">
+            <Setter Property="FontFamily" Value="Noto Sans CJK TC"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBackgroundBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        -->
+
+        <!-- 
+        <Style TargetType="Slider">
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource SliderTrackBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SliderTrackBackgroundBrush}"/>
+        </Style>
+        -->
+    </Window.Resources>
+
+    <!-- <Grid Background="{DynamicResource ElementBackgroundBrush}"> -->
+    <Grid>
+        <md:Card Padding="32" Margin="16">
+            <StackPanel Orientation="Vertical">
+
+                <TextBlock
+                x:Name="NowPlaying"
+                Text="正在播放：None"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock
+                    x:Name="CurrentTimeText"
+                    Text="00:00"
+                    VerticalAlignment="Center"
+                    Width="70"
+                    TextAlignment="Right"/>
+                    <Slider
+                    x:Name="ProgressSlider"
+                    HorizontalAlignment="Stretch"
+                    Minimum="0"
+                    Value="0"
+                    Width="400"
+                    PreviewMouseUp="ProgressSlider_PreviewMouseUp"
+                    PreviewMouseDown="ProgressSlider_PreviewMouseDown"/>
+                    <TextBlock
+                    x:Name="TotalTimeText"
+                    Text="00:00"
+                    VerticalAlignment="Center"
+                    Width="70"/>
+
+                    <TextBlock
+                    Text="音量"
+                    VerticalAlignment="Center"
+                    Margin="10"/>
+                    <Slider
+                    x:Name="VolumeSlider"
+                    Width="100"
+                    Minimum="0"
+                    Maximum="100"
+                    Value="50"
+                    ValueChanged="VolumeSlider_ValueChanged"/>
+                    <TextBlock
+                    Text="00%"
+                    x:Name="VolumeDisplayText"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Left"
+                    Margin="10"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Button
+                    x:Name="PlayPauseBtn"
+                    ToolTip="播放"
+                    Click="PlayPauseBtn_Click">
+                        <md:PackIcon Kind="Play"/>
+                    </Button>
+                    <Button
+                    x:Name="StopBtn"
+                    ToolTip="停止"
+                    Click="StopBtn_Click">
+                        <md:PackIcon Kind="Stop"/>
+                    </Button>
+                    <Button
+                    x:Name="BrowseBtn"
+                    ToolTip="瀏覽"
+                    Click="BrowseBtn_Click">
+                        <md:PackIcon Kind="FolderOpen"/>
+                    </Button>
+                </StackPanel>
+
+                <MediaElement
+                x:Name="MyMediaElement"
+                LoadedBehavior="Manual"
+                Width="400"
+                Height="300"
+                Margin="10"
+                Visibility="Collapsed"
+                MediaOpened="MyMediaElement_MediaOpened"
+                MediaEnded="MyMediaElement_MediaEnded"
+                MediaFailed="MyMediaElement_MediaFailed"/>
+
+            </StackPanel>
+        </md:Card>
+    </Grid>
+</Window>
