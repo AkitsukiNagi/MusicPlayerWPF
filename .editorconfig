@@ -1,0 +1,4 @@
+﻿[*.{cs,vb}]
+
+# IDE0044: 新增唯讀修飾元
+dotnet_diagnostic.IDE0044.severity = none

@@ -27,9 +27,15 @@
     <UpdatePeriodically>false</UpdatePeriodically>
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
+    <SupportUrl>https://github.com/AkitsukiNagi/MusicPlayerWPF/issues</SupportUrl>
+    <ErrorReportUrl>https://github.com/AkitsukiNagi/MusicPlayerWPF/issues</ErrorReportUrl>
+    <TargetCulture>zh-TW</TargetCulture>
+    <ProductName>MusicPlayerWPF</ProductName>
+    <PublisherName>秋月ナギ</PublisherName>
+    <SuiteName>MusicPlayerWPF</SuiteName>
     <AutorunEnabled>true</AutorunEnabled>
     <ApplicationRevision>1</ApplicationRevision>
-    <ApplicationVersion>1.1.0.%2a</ApplicationVersion>
+    <ApplicationVersion>1.1.1.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
     <BootstrapperEnabled>true</BootstrapperEnabled>
@@ -141,6 +147,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include=".editorconfig" />
     <None Include="MusicPlayerWPF_TemporaryKey.pfx" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">

@@ -30,7 +30,7 @@ namespace MusicPlayerWPF
         public event EventHandler<CancelEventArgs> WindowClosedEvent;
         public event EventHandler<int> CurrentIndexModified;
 
-        private readonly MainWindow root;
+        private MainWindow root;
 
         public PlaylistWindow(MainWindow root)
         {
@@ -43,11 +43,11 @@ namespace MusicPlayerWPF
             PlaylistView.SelectionChanged += PlaylistView_SelectionUpdate;
             PlaylistView.MouseDoubleClick += PlaylistView_MouseDoubleClick;
 
+            this.root = root;
             if (root.GetCurrentIndex() != -1)
             {
                 PlaylistView.SelectedIndex = root.GetCurrentIndex();
             }
-            this.root = root;
 
             root.MediaChanged += Root_MediaChanged;
 
@@ -282,7 +282,7 @@ namespace MusicPlayerWPF
 
             OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                Filter=string.Join("|", filterDict.Select(item => $"{item.Key}|{item.Value}")),
+                Filter = string.Join("|", filterDict.Select(item => $"{item.Key}|{item.Value}")),
                 Title = "選擇音訊檔案",
                 Multiselect = true
             };
