@@ -6,10 +6,9 @@
         xmlns:local="clr-namespace:MusicPlayerWPF"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
+        ResizeMode="CanMinimize"
         Title="MusicPlayerWPF" Height="500" Width="900"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-        Background="{DynamicResource MaterialDesignPaper}">
-    <!-- Background="{DynamicResource WindowBackgroundBrush}"> -->
+        Style="{StaticResource MaterialDesignWindow}">
 
     <Window.Resources>
         <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#2D2D30"/>
@@ -65,78 +64,107 @@
             <StackPanel Orientation="Vertical">
 
                 <TextBlock
-                x:Name="NowPlaying"
-                Text="正在播放：None"/>
-                <StackPanel Orientation="Horizontal">
+                    x:Name="NowPlaying"
+                    Text="正在播放：None"
+                    Margin="5"/>
+                <StackPanel Orientation="Horizontal" Margin="5">
                     <TextBlock
-                    x:Name="CurrentTimeText"
-                    Text="00:00"
-                    VerticalAlignment="Center"
-                    Width="70"
-                    TextAlignment="Right"/>
+                        x:Name="CurrentTimeText"
+                        Text="00:00"
+                        VerticalAlignment="Center"
+                        Width="70"
+                        TextAlignment="Right"/>
                     <Slider
-                    x:Name="ProgressSlider"
-                    HorizontalAlignment="Stretch"
-                    Minimum="0"
-                    Value="0"
-                    Width="400"
-                    PreviewMouseUp="ProgressSlider_PreviewMouseUp"
-                    PreviewMouseDown="ProgressSlider_PreviewMouseDown"/>
+                        x:Name="ProgressSlider"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Minimum="0"
+                        Value="0"
+                        Width="400"
+                        PreviewMouseUp="ProgressSlider_PreviewMouseUp"
+                        PreviewMouseDown="ProgressSlider_PreviewMouseDown"/>
                     <TextBlock
-                    x:Name="TotalTimeText"
-                    Text="00:00"
-                    VerticalAlignment="Center"
-                    Width="70"/>
+                        x:Name="TotalTimeText"
+                        Text="00:00"
+                        VerticalAlignment="Center"
+                        Width="70"
+                        TextAlignment="Left"/>
 
                     <TextBlock
-                    Text="音量"
-                    VerticalAlignment="Center"
-                    Margin="10"/>
+                        Text="音量"
+                        VerticalAlignment="Center"
+                        Margin="10"
+                        TextAlignment="Right"/>
                     <Slider
-                    x:Name="VolumeSlider"
-                    Width="100"
-                    Minimum="0"
-                    Maximum="100"
-                    Value="50"
-                    ValueChanged="VolumeSlider_ValueChanged"/>
+                        x:Name="VolumeSlider"
+                        Width="100"
+                        Minimum="0"
+                        Maximum="100"
+                        Value="50"
+                        VerticalAlignment="Center"/>
                     <TextBlock
-                    Text="00%"
-                    x:Name="VolumeDisplayText"
-                    VerticalAlignment="Center"
-                    HorizontalAlignment="Left"
-                    Margin="10"/>
+                        Text="0%"
+                        x:Name="VolumeDisplayText"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Left"
+                        Margin="10"
+                        TextAlignment="Left"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Margin="5">
                     <Button
-                    x:Name="PlayPauseBtn"
-                    ToolTip="播放"
-                    Click="PlayPauseBtn_Click">
+                        x:Name="PlayPauseBtn"
+                        ToolTip="播放"
+                        Click="PlayPauseBtn_Click"
+                        Margin="5">
                         <md:PackIcon Kind="Play"/>
                     </Button>
                     <Button
-                    x:Name="StopBtn"
-                    ToolTip="停止"
-                    Click="StopBtn_Click">
+                        x:Name="ForwardBtn"
+                        ToolTip="下一首"
+                        Click="ForwardBtn_Click"
+                        Margin="5">
+                        <md:PackIcon Kind="FastForward"/>
+                    </Button>
+                    <Button
+                        x:Name="RestartBtn"
+                        ToolTip="從頭播放"
+                        Click="RestartBtn_Click"
+                        Margin="5">
+                        <md:PackIcon Kind="Restart"/>
+                    </Button>
+                    <Button
+                        x:Name="StopBtn"
+                        ToolTip="停止"
+                        Click="StopBtn_Click"
+                        Margin="5">
                         <md:PackIcon Kind="Stop"/>
                     </Button>
                     <Button
-                    x:Name="BrowseBtn"
-                    ToolTip="瀏覽"
-                    Click="BrowseBtn_Click">
-                        <md:PackIcon Kind="FolderOpen"/>
+                        x:Name="PlaylistBtn"
+                        ToolTip="佇列"
+                        Click="PlaylistBtn_Click"
+                        Margin="5">
+                        <md:PackIcon Kind="PlaylistMusic"/>
+                    </Button>
+                    <Button
+                        x:Name="SettingsBtn"
+                        ToolTip="設定"
+                        Click="SettingsBtn_Click"
+                        Margin="5">
+                        <md:PackIcon Kind="Settings"/>
                     </Button>
                 </StackPanel>
 
                 <MediaElement
-                x:Name="MyMediaElement"
-                LoadedBehavior="Manual"
-                Width="400"
-                Height="300"
-                Margin="10"
-                Visibility="Collapsed"
-                MediaOpened="MyMediaElement_MediaOpened"
-                MediaEnded="MyMediaElement_MediaEnded"
-                MediaFailed="MyMediaElement_MediaFailed"/>
+                    x:Name="MyMediaElement"
+                    LoadedBehavior="Manual"
+                    Width="400"
+                    Height="300"
+                    Margin="10"
+                    Visibility="Collapsed"
+                    MediaOpened="MyMediaElement_MediaOpened"
+                    MediaEnded="MyMediaElement_MediaEnded"
+                    MediaFailed="MyMediaElement_MediaFailed"/>
 
             </StackPanel>
         </md:Card>
