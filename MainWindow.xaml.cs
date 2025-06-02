@@ -309,11 +309,11 @@ namespace MusicPlayerWPF
 
         private void MyMediaElement_MediaEnded(object sender, RoutedEventArgs e)
         {
-            if (CurrentIndex >= 0 && Playlist.Count >= 1 && CurrentIndex < Playlist.Count - 1)
+            if (CurrentIndex >= 0 && Playlist.Count > 1 && CurrentIndex < Playlist.Count - 1)
             {
                 Playlist.RemoveAt((int)CurrentIndex);
             }
-            if (Playlist.Count == 0 || CurrentIndex == Playlist.Count - 1)
+            else if (Playlist.Count == 0 || CurrentIndex == Playlist.Count - 1)
             {
                 StopBtn_Click(this, new RoutedEventArgs());
             }
