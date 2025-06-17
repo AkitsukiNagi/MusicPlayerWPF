@@ -9,6 +9,13 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 
+using LibVLCSharp.Shared;
+using System.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+
+
 namespace MusicPlayerWPF
 {
     public enum PlaybackState { Stopped, Playing, Paused }
@@ -18,111 +25,232 @@ namespace MusicPlayerWPF
     /// </summary>
     public partial class MainWindow : Window
     {
-        private string _audioFilePath;
-        private DispatcherTimer _progressTimer = new DispatcherTimer();
-        private bool _isUserDraggingSlider = false;
-        private int? CurrentIndex;
+        public string AppName = "MusicPlayerWPF.VLC (Beta)";
+
+        private string audioFilePath;
+        private DispatcherTimer progressTimer = new DispatcherTimer();
+        private bool isUserDraggingSlider = false;
+        private int? currentIndex;
 
         private PlaylistWindow playlistWindow;
         private SettingsWindow settingsWindow;
 
-        private PlaybackState CurrentState = PlaybackState.Stopped;
+        private PlaybackState currentState = PlaybackState.Stopped;
         public event EventHandler<string> MediaChanged;
 
         public ObservableCollection<PlaylistItem> Playlist = new ObservableCollection<PlaylistItem>();
 
+        private LibVLC libVLC;
+        private LibVLCSharp.Shared.MediaPlayer mediaPlayer;
+
+        private Storyboard TitleMarqueeStoryboard, ArtistsMarqueeStoryboard, AlbumMarqueeStoryboard;
+        private DoubleAnimation TitleMarqueeAnimation, ArtistsMarqueeAnimation, AlbumMarqueeAnimation;
+        private const double marqueeVisibleWidth = 550.0;
+        private const double pixelsPerSecond = 50.0;
+
         public PlaybackState GetCurrentState()
         {
-            return CurrentState;
+            return currentState;
         }
 
         public int GetCurrentIndex()
         {
-            return CurrentIndex != null ? (int)CurrentIndex : -1;
+            return currentIndex != null ? (int)currentIndex : -1;
         }
 
         public MainWindow()
         {
+            Core.Initialize();
             InitializeComponent();
+
+            libVLC = new LibVLC();
+            mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(libVLC);
+
+            mediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+            mediaPlayer.EndReached += MediaPlayer_EndReached;
+            mediaPlayer.EncounteredError += MediaPlayer_MediaFailed;
+            mediaPlayer.PositionChanged += MediaPlayer_PositionChanged;
+            mediaPlayer.Playing += MediaPlayer_Playing;
+
+            Title = AppName;
 
             Playlist.CollectionChanged += Playlist_CollectionChanged;
 
-            _progressTimer.Interval = TimeSpan.FromMilliseconds(500);
-            _progressTimer.Tick += ProgressTimer_Tick;
+            progressTimer.Interval = TimeSpan.FromMilliseconds(500);
+            progressTimer.Tick += ProgressTimer_Tick;
 
+            // Read set volume value from config & apply
             VolumeSlider.ValueChanged += VolumeSlider_ValueChanged;
             VolumeSlider.Value = Properties.Settings.Default.Volume;
-            MyMediaElement.Volume = VolumeSlider.Value / 100.0;
+            if (mediaPlayer != null)
+            {
+                mediaPlayer.Volume = (int)VolumeSlider.Value;
+            }
             VolumeDisplayText.Text = $"{Math.Round(VolumeSlider.Value)}%";
+
+            // Initialize Marquee Animation
+            TitleMarqueeStoryboard = new Storyboard();
+            TitleMarqueeAnimation = new DoubleAnimation
+            {
+                RepeatBehavior = RepeatBehavior.Forever,
+            };
+            Storyboard.SetTargetName(TitleMarqueeAnimation, "TitleMarqueeTransform");
+            Storyboard.SetTargetProperty(TitleMarqueeAnimation, new PropertyPath(TranslateTransform.XProperty));
+            TitleMarqueeStoryboard.Children.Add(TitleMarqueeAnimation);
+
+            ArtistsMarqueeStoryboard = new Storyboard();
+            ArtistsMarqueeAnimation = new DoubleAnimation
+            {
+                From = 0,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            Storyboard.SetTargetName(ArtistsMarqueeAnimation, "ArtistsMarqueeTransform");
+            Storyboard.SetTargetProperty(ArtistsMarqueeAnimation, new PropertyPath(TranslateTransform.XProperty));
+            ArtistsMarqueeStoryboard.Children.Add(ArtistsMarqueeAnimation);
+
+            AlbumMarqueeStoryboard = new Storyboard();
+            AlbumMarqueeAnimation = new DoubleAnimation
+            {
+                From = 0,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            Storyboard.SetTargetName(AlbumMarqueeAnimation, "AlbumMarqueeTransform");
+            Storyboard.SetTargetProperty(ArtistsMarqueeAnimation, new PropertyPath(TranslateTransform.XProperty));
+            AlbumMarqueeStoryboard.Children.Add(AlbumMarqueeAnimation);
 
             UpdatePlaybackButtons();
             UpdateProgressUI();
+            NowPlaying.Text = "None";
 
             Closing += MainWindow_Closing;
         }
 
+        private void MediaPlayer_Playing(object sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                currentState = PlaybackState.Playing;
+                progressTimer?.Start();
+                UpdatePlaybackButtons();
+                UpdateProgressUI();
+            });
+        }
+
+        private void MediaPlayer_LengthChanged(object sender, MediaPlayerLengthChangedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                long lengthMs = e.Length;
+                if (lengthMs > 0)
+                {
+                    TimeSpan duration = TimeSpan.FromMilliseconds(lengthMs);
+                    ProgressSlider.Maximum = duration.TotalSeconds;
+                    TotalTimeText.Text = FormatTimeSpan(duration);
+                    ProgressSlider.Value = 0;
+                }
+                else
+                {
+                    ProgressSlider.Maximum = 0;
+                    TotalTimeText.Text = "00:00";
+                    StopBtn_Click(this, new RoutedEventArgs());
+                }
+            });
+        }
+
+        private void MediaPlayer_PositionChanged(object sender, MediaPlayerPositionChangedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (!isUserDraggingSlider && mediaPlayer.IsPlaying)
+                {
+                    UpdateProgressUI();
+                }
+            });
+        }
+
+        private void MediaPlayer_MediaFailed(object sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show("媒體載入或播放失敗", "播放失敗");
+                StopBtn_Click(this, new RoutedEventArgs());
+            });
+        }
+
+        private void MediaPlayer_EndReached(object sender, EventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                UpdateProgressUI();
+                UpdatePlaybackButtons();
+                UpdateMetadataUI();
+
+                if (currentIndex != null && currentIndex >= 0 && currentIndex < Playlist.Count)
+                {
+                    bool isLastItem = (currentIndex == Playlist.Count - 1);
+                    int oldCurrentIndex = (int)currentIndex;
+
+                    Playlist.RemoveAt((int)currentIndex);
+
+                    if (Playlist.Count == 0)
+                    {
+                        StopBtn_Click(this, new RoutedEventArgs());
+                        return;
+                    }
+                    else if (isLastItem)
+                    {
+                        currentIndex = 0;
+                    }
+                    else
+                    {
+                        if (currentIndex >= Playlist.Count) currentIndex = Playlist.Count - 1;
+                    }
+                }
+                else if (Playlist.Count == 0)
+                {
+                    StopBtn_Click(this, new RoutedEventArgs());
+                    return;
+                }
+
+                if (currentIndex != null && currentIndex >= 0 && currentIndex < Playlist.Count && currentState != PlaybackState.Stopped)
+                {
+                    PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
+                }
+                else
+                {
+                    StopBtn_Click(sender, new RoutedEventArgs());
+                }
+            });
+        }
 
         private void Playlist_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (playlistWindow != null)
             {
                 //playlistWindow.Sync_Playlist(Playlist);
-                Playlist = playlistWindow.PlaylistItems;
+                Playlist = playlistWindow.GetPlaylist();
             }
 
-            //if (e.Action == NotifyCollectionChangedAction.Move)
-            //{
-            //    if (CurrentIndex != null)
-            //    {
-            //        int oldIndex = e.OldStartingIndex;
-            //        int newIndex = e.NewStartingIndex;
-
-            //        if (oldIndex != CurrentIndex)
-            //        {
-            //            CurrentIndex = oldIndex;
-            //        }
-            //        else if (oldIndex < CurrentIndex && newIndex >= CurrentIndex)
-            //        {
-            //            CurrentIndex--;
-            //        }
-            //        else if (oldIndex > CurrentIndex && newIndex <= CurrentIndex)
-            //        {
-            //            CurrentIndex++;
-            //        }
-            //    }
-            //}
-            //else if (e.Action == NotifyCollectionChangedAction.Remove)
-            //{
-            //    if (CurrentIndex != null)
-            //    {
-            //        if (e.OldStartingIndex <= CurrentIndex)
-            //        {
-            //            CurrentIndex--;
-            //        }
-            //    }
-            //}
-            //else if (e.Action == NotifyCollectionChangedAction.Add)
-            //{
-            //    // Do nothing.
-            //}
             UpdatePlaybackButtons();
         }
 
         private void ProgressSlider_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (MyMediaElement != null && MyMediaElement.Source != null && MyMediaElement.NaturalDuration.HasTimeSpan && MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds > 0)
+            if (mediaPlayer != null && mediaPlayer.IsPlaying)
             {
-                MyMediaElement.Position = TimeSpan.FromSeconds(ProgressSlider.Value);
+                float newPos = (float)(ProgressSlider.Value / ProgressSlider.Maximum);
+                mediaPlayer.Position = newPos;
+
                 UpdateProgressUI();
-                _isUserDraggingSlider = false;
-                _progressTimer?.Start();
+                isUserDraggingSlider = false;
+                progressTimer?.Start();
             }
         }
 
         private void ProgressSlider_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            _isUserDraggingSlider = true;
-            _progressTimer?.Stop();
+            isUserDraggingSlider = true;
+            progressTimer?.Stop();
         }
 
         private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -130,45 +258,62 @@ namespace MusicPlayerWPF
             Properties.Settings.Default.Volume = (int)e.NewValue;
             Properties.Settings.Default.Save();
 
-            if (MyMediaElement != null)
+            if (mediaPlayer != null)
             {
-                MyMediaElement.Volume = Properties.Settings.Default.Volume / 100.0;
+                mediaPlayer.Volume = Properties.Settings.Default.Volume;
                 VolumeDisplayText.Text = $"{Properties.Settings.Default.Volume}%";
             }
         }
 
+        private void VolumeSlider_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (e.Delta > 0 && VolumeSlider.Value != VolumeSlider.Maximum)
+            {
+                VolumeSlider.Value += VolumeSlider.SmallChange;
+            }
+            else if (e.Delta < 0 && VolumeSlider.Value != VolumeSlider.Minimum)
+            {
+                VolumeSlider.Value -= VolumeSlider.SmallChange;
+            }
+            e.Handled = true;
+        }
+
         private void PlayPauseBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_audioFilePath == null && CurrentState == PlaybackState.Stopped && Playlist.Count == 0)
+            if (audioFilePath == null && currentState == PlaybackState.Stopped && Playlist.Count == 0)
             {
                 MessageBox.Show("沒有檔案可供播放", "播放失敗");
                 return;
             }
 
-            if (_audioFilePath == null && Playlist.Count > 0 && CurrentState == PlaybackState.Stopped)
+            if (audioFilePath == null && Playlist.Count > 0 && currentState == PlaybackState.Stopped)
             {
-                CurrentIndex = 0;
-                PlayFileFromPath(Playlist[(int)CurrentIndex].FullPath);
+                currentIndex = 0;
+                PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
+                return;
             }
 
-            if (CurrentState == PlaybackState.Stopped || (CurrentState == PlaybackState.Paused && (MyMediaElement == null || MyMediaElement.Source == null || (_audioFilePath != null && MyMediaElement.Source.LocalPath != _audioFilePath))))
+            if (audioFilePath == null && Playlist.Count > 0 && currentState == PlaybackState.Stopped)
             {
-                if (_audioFilePath != null)
-                {
-                    PlayFileFromPath(_audioFilePath);
-                }
+                currentIndex = 0;
+                PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
             }
-            else if (CurrentState == PlaybackState.Paused && MyMediaElement != null && MyMediaElement.Source != null)
+
+            if (currentState == PlaybackState.Paused)
             {
-                MyMediaElement.Play();
-                _progressTimer?.Start();
-                CurrentState = PlaybackState.Playing;
+                mediaPlayer.Play();
+                progressTimer?.Start();
+                currentState = PlaybackState.Playing;
             }
-            else if (CurrentState == PlaybackState.Playing && MyMediaElement != null && MyMediaElement.CanPause)
+            else if (currentState == PlaybackState.Playing)
             {
-                MyMediaElement.Pause();
-                _progressTimer?.Stop();
-                CurrentState = PlaybackState.Paused;
+                mediaPlayer.Pause();
+                progressTimer?.Stop();
+                currentState = PlaybackState.Paused;
+            }
+            else if (currentState == PlaybackState.Stopped && audioFilePath != null)
+            {
+                PlayFileFromPath(audioFilePath);
             }
             UpdatePlaybackButtons();
         }
@@ -176,27 +321,30 @@ namespace MusicPlayerWPF
         private void StopBtn_Click(object sender, RoutedEventArgs e)
         {
             Stop();
-            CurrentState = PlaybackState.Stopped;
+            currentState = PlaybackState.Stopped;
+            audioFilePath = null;
+            currentIndex = null;
+            UpdateMetadataUI();
             UpdateProgressUI();
             UpdatePlaybackButtons();
-            _audioFilePath = null;
-            CurrentIndex = null;
         }
 
         private void Stop()
         {
-            if (MyMediaElement != null)
+            ThreadPool.QueueUserWorkItem(_ => mediaPlayer?.Stop());
+            if (mediaPlayer != null)
             {
-                MyMediaElement.Stop();
-                MyMediaElement.Source = null;
-                NowPlaying.Text = "正在播放：None";
-                _progressTimer?.Stop();
+                progressTimer?.Stop();
 
-                if (CurrentIndex != null && CurrentIndex >= 0 && CurrentIndex < Playlist.Count)
+                if (currentIndex != null && currentIndex >= 0 && currentIndex < Playlist.Count)
                 {
-                    Playlist.RemoveAt((int)CurrentIndex);
+                    Playlist.RemoveAt((int)currentIndex);
+                    if (currentIndex > Playlist.Count) currentIndex = null;
                 }
             }
+            UpdateMetadataUI();
+            UpdatePlaybackButtons();
+            UpdateProgressUI();
         }
 
         private void PlaylistBtn_Click(object sender, RoutedEventArgs e)
@@ -218,14 +366,14 @@ namespace MusicPlayerWPF
 
         private void PlaylistWindow_CurrentIndexModified(object sender, int newIndex)
         {
-            CurrentIndex = newIndex;
+            currentIndex = newIndex;
         }
 
         private void PlaylistWindow_PlaylistUpdated(object sender, ObservableCollection<PlaylistItem> newPlaylist)
         {
             Playlist = newPlaylist;
 
-            if (CurrentState == PlaybackState.Stopped && Playlist.Count > 0)
+            if (currentState == PlaybackState.Stopped && Playlist.Count > 0)
             {
                 PlayFileFromPath(Playlist[0].FullPath);
             }
@@ -255,121 +403,225 @@ namespace MusicPlayerWPF
                 return;
             }
 
-            if (_audioFilePath == filePath && CurrentState == PlaybackState.Paused)
+            if (audioFilePath == filePath && currentState == PlaybackState.Paused)
             {
-                MyMediaElement.Play();
-                _progressTimer?.Start();
-                CurrentState = PlaybackState.Playing;
+                mediaPlayer.Play();
+                progressTimer?.Start();
+                currentState = PlaybackState.Playing;
             }
             else
             {
-                _audioFilePath = filePath;
-                NowPlaying.Text = $"正在播放：{Path.GetFileNameWithoutExtension(_audioFilePath)}";
+                audioFilePath = filePath;
+                NowPlaying.Text = $"{Path.GetFileNameWithoutExtension(audioFilePath)}";
                 UpdateProgressUI();
                 try
                 {
-                    MyMediaElement.Source = new Uri(_audioFilePath);
-                    CurrentState = PlaybackState.Playing;
+                    using (var media = new Media(libVLC, new Uri(audioFilePath)))
+                    {
+                        mediaPlayer.Play(media);
+                    }
+
+                    currentIndex = Playlist.ToList().FindIndex(item => item.FullPath == audioFilePath);
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show(ex.Message, "播放失敗");
                     System.Diagnostics.Debug.WriteLine(ex.StackTrace);
-                    _audioFilePath = null;
+                    audioFilePath = null;
                     StopBtn_Click(this, new RoutedEventArgs());
                 }
+
+                try
+                {
+                    var metadataReader = new MetadataReader();
+                    var metadata = metadataReader.GetMetadataByFile(audioFilePath);
+                    UpdateMetadataUI(metadata);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex.Message);
+                    UpdateMetadataUI();
+                }
             }
-            CurrentIndex = Playlist.ToList().FindIndex(item => item.FullPath == _audioFilePath);
-            MyMediaElement_MediaOpened(this, new RoutedEventArgs());
             UpdatePlaybackButtons();
         }
 
-        private void MyMediaElement_MediaOpened(object sender, RoutedEventArgs e)
+        private void UpdateMetadataUI(Metadata metadata)
         {
-            if (MyMediaElement.NaturalDuration.HasTimeSpan && MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds > 0)
+            // Title
+            NowPlaying.Text = metadata.Title;
+            TitleMarquee.Visibility = Visibility.Visible;
+            NowPlaying.Visibility = Visibility.Visible;
+
+            NowPlaying.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            NowPlaying.Arrange(new Rect(0, 0, NowPlaying.DesiredSize.Width, NowPlaying.DesiredSize.Height));
+
+            NowPlayingTextHolder.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            NowPlayingTextHolder.Arrange(new Rect(0, 0, NowPlayingTextHolder.DesiredSize.Width, NowPlayingTextHolder.DesiredSize.Height));
+
+            double singleTextWidth = NowPlaying.DesiredSize.Width;
+            TitleMarqueeStoryboard.Stop(TitleMarquee);
+            TitleMarqueeTransform.X = 0;
+            TitleMarquee.Width = marqueeVisibleWidth;
+            TitleMarquee.MaxWidth = marqueeVisibleWidth;
+
+            if (singleTextWidth > marqueeVisibleWidth)
             {
-                ProgressSlider.Maximum = MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds;
-                TotalTimeText.Text = FormatTimeSpan(MyMediaElement.NaturalDuration.TimeSpan);
+                NowPlaying.TextWrapping = TextWrapping.NoWrap;
+                TitleMarqueeAnimation.From = marqueeVisibleWidth;
+                TitleMarqueeAnimation.To = -(singleTextWidth);
+
+                double durationSeconds = singleTextWidth / pixelsPerSecond;
+                if (durationSeconds < 2) durationSeconds = 2;
+                TitleMarqueeAnimation.Duration = new Duration(TimeSpan.FromSeconds(durationSeconds));
+                TitleMarqueeStoryboard.Begin(TitleMarquee, true);
             }
             else
             {
-                ProgressSlider.Maximum = 0;
-                TotalTimeText.Text = "00:00";
-                RestartBtn_Click(this, new RoutedEventArgs());
+                TitleMarqueeStoryboard.Stop(TitleMarquee);
+                TitleMarqueeTransform.X = 0;
+                NowPlaying.TextWrapping = TextWrapping.NoWrap;
             }
 
-            if (CurrentState == PlaybackState.Playing)
+            // Artists
+            ArtistsName.Text = metadata.Artists;
+            ArtistsName.Visibility = Visibility.Visible;
+            ArtistsMarquee.Visibility = Visibility.Visible;
+
+            ArtistsName.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            ArtistsName.Arrange(new Rect(0, 0, ArtistsName.DesiredSize.Width, ArtistsName.DesiredSize.Height));
+
+            ArtistsTextHolder.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            ArtistsTextHolder.Arrange(new Rect(0, 0, ArtistsTextHolder.DesiredSize.Width, ArtistsTextHolder.DesiredSize.Height));
+
+            singleTextWidth = ArtistsName.DesiredSize.Width;
+            ArtistsMarqueeStoryboard.Stop(ArtistsMarquee);
+            ArtistsMarqueeTransform.X = 0;
+            ArtistsMarquee.Width = marqueeVisibleWidth;
+            ArtistsMarquee.MaxWidth = marqueeVisibleWidth;
+
+            if (singleTextWidth > marqueeVisibleWidth)
             {
-                MyMediaElement.Play();
-                _progressTimer?.Start();
+                ArtistsName.TextWrapping = TextWrapping.NoWrap;
+                ArtistsMarqueeAnimation.To = -(singleTextWidth);
+
+                double durationSeconds = singleTextWidth / pixelsPerSecond;
+                durationSeconds = (durationSeconds < 2) ? 2 : durationSeconds;
+                ArtistsMarqueeAnimation.Duration = new Duration(TimeSpan.FromSeconds(durationSeconds));
+                ArtistsMarqueeStoryboard.Begin(ArtistsMarquee, true);
+            }
+            else
+            {
+                ArtistsMarqueeStoryboard.Stop(ArtistsMarquee);
+                ArtistsMarqueeTransform.X = 0;
+                ArtistsName.TextWrapping = TextWrapping.NoWrap;
             }
 
-            UpdatePlaybackButtons();
-        }
+            // Album
+            AlbumName.Text = metadata.Album;
+            AlbumName.Visibility = Visibility.Visible;
+            AlbumMarquee.Visibility = Visibility.Visible;
 
-        private void MyMediaElement_MediaEnded(object sender, RoutedEventArgs e)
-        {
-            if (CurrentIndex >= 0 && Playlist.Count > 1 && CurrentIndex < Playlist.Count - 1)
+            AlbumName.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            AlbumName.Arrange(new Rect(0, 0, AlbumName.DesiredSize.Width, AlbumName.DesiredSize.Height));
+
+            AlbumTextHolder.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            AlbumTextHolder.Arrange(new Rect(0, 0, AlbumTextHolder.DesiredSize.Width, AlbumTextHolder.DesiredSize.Height));
+
+            singleTextWidth = AlbumName.DesiredSize.Width;
+            AlbumMarqueeStoryboard.Stop(AlbumMarquee);
+            AlbumMarqueeTransform.X = 0;
+            AlbumMarquee.Width = marqueeVisibleWidth;
+            AlbumMarquee.MaxWidth = marqueeVisibleWidth;
+
+            if (singleTextWidth > marqueeVisibleWidth)
             {
-                Playlist.RemoveAt((int)CurrentIndex);
+                AlbumName.TextWrapping = TextWrapping.NoWrap;
+                ArtistsMarqueeAnimation.To = -(singleTextWidth);
+
+                double durationSeconds = singleTextWidth / pixelsPerSecond;
+                AlbumMarqueeAnimation.Duration = new Duration(TimeSpan.FromSeconds(durationSeconds));
+                AlbumMarqueeStoryboard.Begin(AlbumMarquee, true);
             }
-            else if (Playlist.Count == 0 || CurrentIndex == Playlist.Count - 1)
+            else
             {
-                StopBtn_Click(this, new RoutedEventArgs());
+                AlbumMarqueeStoryboard.Stop(AlbumMarquee);
+                AlbumMarqueeTransform.X = 0;
+                AlbumName.TextWrapping = TextWrapping.NoWrap;
             }
 
-            if (_audioFilePath != null && CurrentIndex != null && Playlist.Count >= 1 && CurrentState != PlaybackState.Stopped)
+            Thumbnail.Visibility = Visibility.Visible;
+
+            if (metadata.Thumbnail != null)
             {
-                if (CurrentIndex >= 0 && CurrentIndex < Playlist.Count)
+                using (MemoryStream ms = new MemoryStream(metadata.Thumbnail))
                 {
-                    PlayFileFromPath(Playlist[(int)CurrentIndex].FullPath);
+                    BitmapImage image = new BitmapImage();
+                    image.BeginInit();
+                    image.StreamSource = ms;
+                    image.CacheOption = BitmapCacheOption.OnLoad;
+                    image.EndInit();
+                    image.Freeze();
+                    Thumbnail.Source = image;
                 }
             }
         }
 
-        private void MyMediaElement_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+        private void UpdateMetadataUI()
         {
-            MessageBox.Show(e.ErrorException.Message, "媒體載入失敗");
-            StopBtn_Click(this, new RoutedEventArgs());
+            NowPlaying.Text = "";
+            TitleMarquee.Visibility = Visibility.Collapsed;
+            NowPlaying.Visibility = Visibility.Collapsed;
+            TitleMarqueeStoryboard.Stop();
+
+            ArtistsName.Text = "";
+            ArtistsMarquee.Visibility = Visibility.Collapsed;
+            ArtistsName.Visibility = Visibility.Collapsed;
+            ArtistsMarqueeStoryboard.Stop();
+
+            AlbumName.Text = "";
+            AlbumMarquee.Visibility = Visibility.Collapsed;
+            AlbumName.Visibility = Visibility.Collapsed;
+            AlbumMarqueeStoryboard.Stop();
+
+            Thumbnail.Source = null;
+            Thumbnail.Visibility = Visibility.Collapsed;
         }
 
         private void ProgressTimer_Tick(object sender, EventArgs e)
         {
-            if (!_isUserDraggingSlider && MyMediaElement != null && MyMediaElement.Source != null && MyMediaElement.NaturalDuration.HasTimeSpan && MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds > 0 && MyMediaElement.Position < MyMediaElement.NaturalDuration.TimeSpan)
+            if (!isUserDraggingSlider && mediaPlayer != null && mediaPlayer.IsPlaying)
             {
                 UpdateProgressUI();
             }
             else
             {
-                if (MyMediaElement != null && MyMediaElement.NaturalDuration.HasTimeSpan && MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds > 0 && MyMediaElement.Position >= MyMediaElement.NaturalDuration.TimeSpan)
+                if (progressTimer?.IsEnabled == true && (mediaPlayer != null || !mediaPlayer.IsPlaying))
                 {
-                    _progressTimer?.Stop();
-                }
-                else if (_progressTimer?.IsEnabled == true)
-                {
-                    _progressTimer.Stop();
+                    progressTimer?.Stop();
                 }
             }
         }
 
         private void UpdatePlaybackButtons()
         {
-            bool isFileSelected = (_audioFilePath != null);
-            bool isMediaLoaded = (MyMediaElement != null && MyMediaElement.Source != null && MyMediaElement.NaturalDuration.HasTimeSpan);
+            bool isFileLoaded = (audioFilePath != null && mediaPlayer != null && mediaPlayer.Media != null && mediaPlayer.Media.Duration > 0);
+            //bool isMediaLoaded = (MyMediaElement != null && MyMediaElement.Source != null && MyMediaElement.NaturalDuration.HasTimeSpan);
             //bool isPlaying = (_progressTimer.IsEnabled == true && isMediaLoaded && MyMediaElement.Position < MyMediaElement.NaturalDuration.TimeSpan);
             //bool isPaused = (isMediaLoaded && MyMediaElement.CanPause && !isPlaying && MyMediaElement.Position < MyMediaElement.NaturalDuration.TimeSpan);
             //bool isStopped = (MyMediaElement == null || MyMediaElement.Source == null || (isPlaying && !isPaused && (MyMediaElement.Position == TimeSpan.Zero || MyMediaElement.Position >= MyMediaElement.NaturalDuration.TimeSpan)));
 
-            PlayPauseBtn.IsEnabled = isFileSelected || CurrentState == PlaybackState.Paused || Playlist.Count > 0;
-            ForwardBtn.IsEnabled = (Playlist.Count > 1) && CurrentState != PlaybackState.Stopped && CurrentIndex < Playlist.Count - 1;
-            RestartBtn.IsEnabled = isFileSelected && CurrentState != PlaybackState.Stopped;
+            PlayPauseBtn.IsEnabled = isFileLoaded || currentState == PlaybackState.Paused || Playlist.Count > 0;
+            ForwardBtn.IsEnabled = (Playlist.Count > 1) && currentState != PlaybackState.Stopped && currentIndex < Playlist.Count - 1;
+            RestartBtn.IsEnabled = isFileLoaded && currentState != PlaybackState.Stopped;
+            StopBtn.IsEnabled = isFileLoaded && currentState != PlaybackState.Stopped && currentIndex < Playlist.Count - 1;
 
-            if (CurrentState == PlaybackState.Playing)
+            if (currentState == PlaybackState.Playing)
             {
                 ((PackIcon)PlayPauseBtn.Content).Kind = PackIconKind.Pause;
                 PlayPauseBtn.ToolTip = "暫停";
             }
-            else if (CurrentState == PlaybackState.Paused)
+            else if (currentState == PlaybackState.Paused)
             {
                 ((PackIcon)PlayPauseBtn.Content).Kind = PackIconKind.Play;
                 PlayPauseBtn.ToolTip = "繼續";
@@ -380,15 +632,15 @@ namespace MusicPlayerWPF
                 PlayPauseBtn.ToolTip = "播放";
             }
 
-            StopBtn.IsEnabled = isMediaLoaded || CurrentState != PlaybackState.Stopped;
+            StopBtn.IsEnabled = isFileLoaded || currentState != PlaybackState.Stopped;
             PlaylistBtn.IsEnabled = true;
 
-            bool showProgress = isFileSelected && isMediaLoaded; /* && MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds > 0*/
+            bool showProgress = isFileLoaded && currentState != PlaybackState.Stopped; /* && MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds > 0*/
             CurrentTimeText.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
             ProgressSlider.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
             TotalTimeText.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
 
-            if (CurrentState == PlaybackState.Stopped)
+            if (currentState == PlaybackState.Stopped)
             {
                 ProgressSlider.Value = 0;
                 CurrentTimeText.Text = "00:00";
@@ -401,10 +653,22 @@ namespace MusicPlayerWPF
 
         private void UpdateProgressUI()
         {
-            if (MyMediaElement != null && MyMediaElement.NaturalDuration.HasTimeSpan && MyMediaElement.NaturalDuration.TimeSpan.TotalSeconds > 0)
+            if (mediaPlayer != null && mediaPlayer.Media != null && mediaPlayer.Media.Duration > 0)
             {
-                ProgressSlider.Value = MyMediaElement.Position.TotalSeconds;
-                CurrentTimeText.Text = FormatTimeSpan(MyMediaElement.Position);
+                TimeSpan currentPosition = TimeSpan.FromMilliseconds(mediaPlayer.Time);
+                TimeSpan totalDuration = TimeSpan.FromMilliseconds(mediaPlayer.Media.Duration);
+
+                if (ProgressSlider.Maximum == 0 && totalDuration.TotalSeconds > 0)
+                {
+                    ProgressSlider.Maximum = totalDuration.TotalSeconds;
+                    TotalTimeText.Text = FormatTimeSpan(totalDuration);
+                }
+
+                if (!isUserDraggingSlider)
+                {
+                    ProgressSlider.Value = currentPosition.TotalSeconds;
+                }
+                CurrentTimeText.Text = FormatTimeSpan(currentPosition);
             }
             else
             {
@@ -423,21 +687,30 @@ namespace MusicPlayerWPF
 
         private void DisposeMediaPlayer()
         {
-            if (MyMediaElement != null)
+            if (mediaPlayer != null)
             {
-                MyMediaElement.MediaOpened -= MyMediaElement_MediaOpened;
-                MyMediaElement.MediaEnded -= MyMediaElement_MediaEnded;
-                MyMediaElement.MediaFailed -= MyMediaElement_MediaFailed;
+                mediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
+                mediaPlayer.EndReached -= MediaPlayer_EndReached;
+                mediaPlayer.EncounteredError -= MediaPlayer_MediaFailed;
+                mediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
+                mediaPlayer.Playing -= MediaPlayer_Playing;
 
-                if (_progressTimer != null)
+                ThreadPool.QueueUserWorkItem(_ => mediaPlayer?.Stop());
+                mediaPlayer.Dispose();
+                mediaPlayer = null;
+
+                if (libVLC != null)
                 {
-                    _progressTimer.Tick -= ProgressTimer_Tick;
-                    _progressTimer.Stop();
-                    _progressTimer = null;
+                    libVLC.Dispose();
+                    libVLC = null;
                 }
 
-                MyMediaElement.Stop();
-                MyMediaElement.Source = null;
+                if (progressTimer != null)
+                {
+                    progressTimer.Tick -= ProgressTimer_Tick;
+                    progressTimer?.Stop();
+                    progressTimer = null;
+                }
             }
         }
 
@@ -448,23 +721,35 @@ namespace MusicPlayerWPF
 
         private void ForwardBtn_Click(object sender, RoutedEventArgs e)
         {
-            Stop();
-
-            if (Playlist.Count > 0 && CurrentIndex < Playlist.Count - 1)
+            if (Playlist.Count > 0 && currentIndex != null && currentIndex < Playlist.Count - 1)
             {
-                PlayFileFromPath(Playlist[(int)CurrentIndex].FullPath);
+                Stop();
+                currentIndex += 1;
+                PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
+            }
+            else if (Playlist.Count > 0 && currentIndex != null && currentIndex == Playlist.Count - 1)
+            {
+                StopBtn_Click(this, new RoutedEventArgs());
             }
         }
 
         private void RestartBtn_Click(object sender, RoutedEventArgs e)
         {
-            MyMediaElement.Stop();
-            _progressTimer?.Stop();
+            if (mediaPlayer != null && mediaPlayer.Media != null)
+            {
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    mediaPlayer?.Stop();
+                    progressTimer?.Stop();
+                    currentState = PlaybackState.Stopped;
 
-            MyMediaElement.Play();
-            _progressTimer?.Start();
-            UpdatePlaybackButtons();
-            UpdateProgressUI();
+                    mediaPlayer?.Play();
+                    currentState = PlaybackState.Playing;
+                    progressTimer?.Start();
+                });
+                UpdatePlaybackButtons();
+                UpdateProgressUI();
+            }
         }
 
         private void SettingsBtn_Click(object sender, RoutedEventArgs e)
@@ -480,7 +765,7 @@ namespace MusicPlayerWPF
                 return;
             }
 
-            settingsWindow = new SettingsWindow();
+            settingsWindow = new SettingsWindow(this);
             settingsWindow.Show();
             settingsWindow.WindowClosedEvent += SettingsWindow_WindowClosedHandler;
         }

@@ -16,9 +16,11 @@ namespace MusicPlayerWPF
         public List<string> AvailableColors { get; set; }
         public event EventHandler<CancelEventArgs> WindowClosedEvent;
 
-        public SettingsWindow()
+        public SettingsWindow(MainWindow root)
         {
             InitializeComponent();
+
+            Title = "【設定】" + root.AppName;
 
             DataContext = this;
             AvailableColors = GetMaterialDesignColorNames();
