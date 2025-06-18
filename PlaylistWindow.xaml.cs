@@ -32,9 +32,9 @@ namespace MusicPlayerWPF
         private MainWindow root;
 
         private ObservableCollection<PlaylistItem> PlaylistItems { get; set; }
-        private List<String> supportFormat = new List<String>()
+        private List<string> supportFormat = new List<string>()
         {
-            ".mp3", ".ogg", ".flac", ".m4a", ".wav"
+            ".mp3", ".ogg", ".flac", ".m4a", ".wav", ".opus", ".webm"
         };
 
         public ObservableCollection<PlaylistItem> GetPlaylist() => PlaylistItems;
@@ -101,7 +101,7 @@ namespace MusicPlayerWPF
             {
                 if (!supportFormat.Contains(Path.GetExtension(file)))
                 {
-                    MessageBox.Show($"檔案 {Path.GetFileName(file)} 的格式並未被支援", "發生錯誤");
+                    MessageBox.Show($"檔案 {Path.GetFileName(file).ToLower()} 的格式 {Path.GetExtension(file).Substring(1).ToLower()} 並未被支援", "發生錯誤");
                     continue;
                 }
                 else if (PlaylistItems.ToList().FindIndex(item => item.FullPath == file) == -1)
@@ -299,12 +299,13 @@ namespace MusicPlayerWPF
         {
             Dictionary<string, string> filterDict = new Dictionary<string, string>
             {
-                { "所有音訊檔案 (*.mp3;*.wav;*.m4a;*.ogg;*.flac)", "*.mp3;*.wav;*.m4a;*.ogg;*.flac" },
+                { "所有音訊檔案 (*.mp3;*.wav;*.m4a;*.ogg;*.flac;*.opus)", "*.mp3;*.wav;*.m4a;*.ogg;*.flac;*.opus" },
                 { "MPEG-1 檔案 (*.mp3)", "*.mp3" },
                 { "MPEG-4 檔案 (*.m4a)", "*.m4a" },
                 { "Wave 檔案 (*.wav)", "*.wav" },
                 { "Vorbis 檔案 (*.ogg)", "*.ogg"},
                 { "FLAC 檔案 (*.flac)", "*.flac" },
+                { "OPUS 檔案 (*.opus)", "*.opus" },
                 { "所有檔案 (*.*)", "*.*" }
             };
 

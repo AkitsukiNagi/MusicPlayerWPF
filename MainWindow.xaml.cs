@@ -1,19 +1,18 @@
-﻿using MaterialDesignThemes.Wpf;
+﻿using LibVLCSharp.Shared;
+using MaterialDesignThemes.Wpf;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
-
-using LibVLCSharp.Shared;
-using System.Threading;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 
 namespace MusicPlayerWPF
@@ -45,7 +44,7 @@ namespace MusicPlayerWPF
 
         private Storyboard TitleMarqueeStoryboard, ArtistsMarqueeStoryboard, AlbumMarqueeStoryboard;
         private DoubleAnimation TitleMarqueeAnimation, ArtistsMarqueeAnimation, AlbumMarqueeAnimation;
-        private const double marqueeVisibleWidth = 550.0;
+        private double marqueeVisibleWidth = 550.0;
         private const double pixelsPerSecond = 50.0;
 
         public PlaybackState GetCurrentState()
@@ -199,11 +198,10 @@ namespace MusicPlayerWPF
                     }
                     else if (isLastItem)
                     {
-                        currentIndex = 0;
-                    }
-                    else
-                    {
-                        if (currentIndex >= Playlist.Count) currentIndex = Playlist.Count - 1;
+                        if (Playlist.Count > 0)
+                            currentIndex = 0;
+                        else
+                            currentIndex = null;
                     }
                 }
                 else if (Playlist.Count == 0)
@@ -218,7 +216,7 @@ namespace MusicPlayerWPF
                 }
                 else
                 {
-                    StopBtn_Click(sender, new RoutedEventArgs());
+                    StopBtn_Click(this, new RoutedEventArgs());
                 }
             });
         }
@@ -448,6 +446,24 @@ namespace MusicPlayerWPF
 
         private void UpdateMetadataUI(Metadata metadata)
         {
+            if (metadata.Thumbnail != null)
+            {
+                using (MemoryStream ms = new MemoryStream(metadata.Thumbnail))
+                {
+                    BitmapImage image = new BitmapImage();
+                    image.BeginInit();
+                    image.StreamSource = ms;
+                    image.CacheOption = BitmapCacheOption.OnLoad;
+                    image.EndInit();
+                    image.Freeze();
+                    Thumbnail.Source = image;
+                }
+                Thumbnail.Visibility = Visibility.Visible;
+                marqueeVisibleWidth = 550.0;
+            }
+            else marqueeVisibleWidth = 800.0;
+            MasterContainer.MaxWidth = marqueeVisibleWidth;
+
             // Title
             NowPlaying.Text = metadata.Title;
             TitleMarquee.Visibility = Visibility.Visible;
@@ -548,22 +564,6 @@ namespace MusicPlayerWPF
                 AlbumMarqueeStoryboard.Stop(AlbumMarquee);
                 AlbumMarqueeTransform.X = 0;
                 AlbumName.TextWrapping = TextWrapping.NoWrap;
-            }
-
-            Thumbnail.Visibility = Visibility.Visible;
-
-            if (metadata.Thumbnail != null)
-            {
-                using (MemoryStream ms = new MemoryStream(metadata.Thumbnail))
-                {
-                    BitmapImage image = new BitmapImage();
-                    image.BeginInit();
-                    image.StreamSource = ms;
-                    image.CacheOption = BitmapCacheOption.OnLoad;
-                    image.EndInit();
-                    image.Freeze();
-                    Thumbnail.Source = image;
-                }
             }
         }
 

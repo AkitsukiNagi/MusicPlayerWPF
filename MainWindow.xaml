@@ -28,22 +28,32 @@
         <StackPanel Orientation="Vertical">
             <StackPanel
                 Orientation="Horizontal"
-                HorizontalAlignment="Center"
+                HorizontalAlignment="Stretch"
+                Height="Auto" Width="Auto"
                 Margin="0 0 0 15">
 
+                <!--
+                // Stretch property of "Image" Element //
+                // * Uniform: Show the image completely but the longer side will be cut into 200px
+                -->
                 <Image
                     x:Name="Thumbnail"
-                    Width="200" Height="200"
-                    Stretch="UniformToFill"
+                    MinWidth="200" MinHeight="200"
+                    Width="Auto" Height="Auto"
+                    MaxWidth="320" MaxHeight="320"
+                    Stretch="Uniform"
+                    StretchDirection="Both"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Left"
                     Margin="0 0 20 0"
                     Visibility="Collapsed"/>
 
                 <StackPanel
+                    x:Name="MasterContainer"
                     Orientation="Vertical"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Left"
+                    MaxWidth="400"
                     ClipToBounds="True">
                     <Canvas
                         x:Name="TitleMarquee"
@@ -55,21 +65,23 @@
 
                         <StackPanel
                             Orientation="Horizontal"
-                            x:Name="NowPlayingTextHolder">
-                            <TextBlock
+                            x:Name="NowPlayingTextHolder"
+                            Margin="0 0 0 0">
+                            <TextBlock 
                                 x:Name="NowPlaying"
                                 Text="None"
                                 FontSize="24"
                                 FontWeight="SemiBold"
                                 Visibility="Collapsed"
                                 TextWrapping="NoWrap"
+                                Margin="0 0 0 0"
                                 HorizontalAlignment="Left"/>
                         </StackPanel>
                     </Canvas>
                     <Canvas
                         x:Name="ArtistsMarquee"
                         Margin="0 5 0 5"
-                        Height="20">
+                        Height="25">
                         <Canvas.RenderTransform>
                             <TranslateTransform x:Name="ArtistsMarqueeTransform"/>
                         </Canvas.RenderTransform>
@@ -87,7 +99,7 @@
                     <Canvas
                         x:Name="AlbumMarquee"
                         Margin="0 5 0 5"
-                        Height="16">
+                        Height="25">
                         <Canvas.RenderTransform>
                             <TranslateTransform x:Name="AlbumMarqueeTransform"/>
                         </Canvas.RenderTransform>
@@ -105,7 +117,7 @@
                     </Canvas>
                 </StackPanel>
             </StackPanel>
-          
+
             <StackPanel Orientation="Horizontal" Margin="5">
                 <TextBlock
                     x:Name="CurrentTimeText"
