@@ -1,24 +1,32 @@
 # MusicPlayerWPF
-## **MusicPlayerWPF** is an MusicPlayer written in .NET Framework with [MaterialDesign](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit)
+**MusicPlayerWPF** is an MusicPlayer written in .NET Framework with [MaterialDesign](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit) and [libVLCSharp](https://github.com/videolan/libvlcsharp)
+
 ![](https://img.shields.io/github/v/release/AkitsukiNagi/MusicPlayerWPF) <!-- ![](https://img.shields.io/github/downloads/AkitsukiNagi/MusicPlayerWPF/total) -->
 
 
-### Format support status
-| Format | Support state |
-|---|---|
-| MPEG-1 (mp3) | Full support |
-| MPEG-4 audio (m4a) | Full support |
-| Vorbis (ogg) | Not Supported |
-| FLAC | No Progress Bar |
-| Others | Not tested |
+### Supported File Extensions
+✔: Fully Support
+
+△: Partial Support
+
+✘: Not Support
+| Format | v1.1.2 or older | v2.0 or later |
+| --- | --- | --- |
+| .mp3 | ✔ | ✔ |
+| .m4a | ✔ | ✔ | 
+| .ogg | ✘ | ✔ |
+| .flac | △ | ✔ |
+| .webm | ✘ | ✔ |
+| Other | △ [^1] | ✘[^2] |
+[^1]: Unknown
+[^2]: Because of newly imported "type filter", other format even is playable will be blocked by the filter.
 
 ### Screenshots
-![Idle](https://github.com/user-attachments/assets/ac90819c-bf68-4da5-982f-8f06e17bb4f9)
-![Playing](https://github.com/user-attachments/assets/a8c5097c-55c1-4954-9886-d35637e7556b)
-![Playlist](https://github.com/user-attachments/assets/7348057e-cd49-46f5-bae6-50fc8b480d15)
-![Darkmode](https://github.com/user-attachments/assets/dcbf1a89-e98b-4e33-bc6c-60e61898aea6)
-
+![Idle](https://github.com/user-attachments/assets/048018b3-92ce-44ae-9043-6cca83392a7d)
+![Playing](https://github.com/user-attachments/assets/a2720c88-e95c-41ea-a9fb-7de96e77c759)
+![Playlist](https://github.com/user-attachments/assets/c32e3330-d44b-4565-b9bb-2e124afb6e2e)
+![Darkmode](https://github.com/user-attachments/assets/9d3244f0-0c04-4c74-8ecb-2311e5cc28bc)
 
 ### TODO
 * [ ] i18n support
-* [ ] Support more formats
+* [x] Support more formats

@@ -21,10 +21,14 @@
                         ToolTip="深色模式"
                         VerticalAlignment="Center"/>
 
-                    <ToggleButton
+                    <ComboBox
                         x:Name="ThemeSwitch"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center"/>
+                        ItemsSource="{Binding Themes}"
+                        Margin="5"
+                        Width="100"
+                        VerticalAlignment="Center"
+                        ToolTip="由於目前技術瓶頸，自動模式僅能在程式開啟或程式本身設定更動時套用目前系統模式設定"
+                        SelectionChanged="ThemeSwitch_SelectionChanged"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="5">
                     <TextBlock

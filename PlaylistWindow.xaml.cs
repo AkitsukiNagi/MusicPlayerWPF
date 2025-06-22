@@ -9,6 +9,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace MusicPlayerWPF
 {
@@ -24,7 +25,6 @@ namespace MusicPlayerWPF
     /// </summary>
     public partial class PlaylistWindow : Window
     {
-        public ObservableCollection<PlaylistItem> PlaylistItems { get; set; }
         public event EventHandler<string> PlayFileRequested;
         public event EventHandler<ObservableCollection<PlaylistItem>> PlaylistUpdated;
         public event EventHandler<CancelEventArgs> WindowClosedEvent;
@@ -32,11 +32,17 @@ namespace MusicPlayerWPF
 
         private MainWindow root;
 
+        private ObservableCollection<PlaylistItem> PlaylistItems { get; set; }
+
+        public ObservableCollection<PlaylistItem> GetPlaylist() => PlaylistItems;
+
         public PlaylistWindow(MainWindow root)
         {
             InitializeComponent();
 
-            PlaylistItems = root.Playlist;
+            Title = "【播放清單】" + root.AppName;
+
+            PlaylistItems = App.GlobalPlaylist;
             PlaylistItems.CollectionChanged += PlaylistItems_CollectionChanged;
             PlaylistView.ItemsSource = PlaylistItems;
 
@@ -68,14 +74,17 @@ namespace MusicPlayerWPF
             PlaylistUpdated?.Invoke(this, PlaylistItems);
         }
 
-        public ObservableCollection<PlaylistItem> GetPlaylist()
-        {
-            return PlaylistItems;
-        }
-
         private void PlaylistView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (e.ChangedButton != MouseButton.Left) return;
+
+            DependencyObject dpObj = e.OriginalSource as DependencyObject;
+            while (dpObj != null && !(dpObj is ListViewItem))
+            {
+                if (dpObj == sender) return;
+                dpObj = VisualTreeHelper.GetParent(dpObj);
+            }
+
             if (PlaylistView.SelectedItem is PlaylistItem selectedItem)
             {
                 int newIndex = FindIndex(selectedItem);
@@ -84,6 +93,30 @@ namespace MusicPlayerWPF
                     CurrentIndexModified?.Invoke(this, newIndex);
                     PlayFileRequested?.Invoke(this, selectedItem.FullPath);
                 }
+            }
+        }
+
+        private void PlaylistView_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+
+            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+
+            foreach (string file in files)
+            {
+                if (!Constants.SupportFormat.Contains(Path.GetExtension(file)))
+                {
+                    MessageBox.Show($"檔案 {Path.GetFileName(file).ToLower()} 的格式 {Path.GetExtension(file).Substring(1).ToLower()} 並未被支援", "發生錯誤");
+                    continue;
+                }
+                else if (PlaylistItems.ToList().FindIndex(item => item.FullPath == file) == -1)
+                    PlaylistItems.Add(
+                        new PlaylistItem()
+                        {
+                            FileName = Path.GetFileNameWithoutExtension(file),
+                            FullPath = file,
+                        }
+                    );
             }
         }
 
@@ -272,11 +305,13 @@ namespace MusicPlayerWPF
         {
             Dictionary<string, string> filterDict = new Dictionary<string, string>
             {
-                { "所有音訊檔案 (*.mp3;*.wav;*.m4a)", "*.mp3;*.wav;*.m4a" },
+                { "所有音訊檔案 (*.mp3;*.wav;*.m4a;*.ogg;*.flac;*.opus)", "*.mp3;*.wav;*.m4a;*.ogg;*.flac;*.opus" },
                 { "MPEG-1 檔案 (*.mp3)", "*.mp3" },
                 { "MPEG-4 檔案 (*.m4a)", "*.m4a" },
                 { "Wave 檔案 (*.wav)", "*.wav" },
-                /* { "Vorbis 檔案 (*.ogg)", "*.ogg"}, */
+                { "Vorbis 檔案 (*.ogg)", "*.ogg"},
+                { "FLAC 檔案 (*.flac)", "*.flac" },
+                { "OPUS 檔案 (*.opus)", "*.opus" },
                 { "所有檔案 (*.*)", "*.*" }
             };
 
@@ -289,21 +324,22 @@ namespace MusicPlayerWPF
 
             if (openFileDialog.ShowDialog() == true)
             {
-                foreach (string fileName in openFileDialog.FileNames)
+                foreach (string filePath in openFileDialog.FileNames)
                 {
-                    bool exists = false;
-                    foreach (var items in PlaylistItems)
+                    if (!Constants.SupportFormat.Contains(Path.GetExtension(filePath)))
                     {
-                        if (items.FullPath == fileName)
-                        {
-                            exists = true;
-                            break;
-                        }
+                        MessageBox.Show($"檔案 {Path.GetFileName(filePath)} 的格式並未被支援", "發生錯誤");
+                        continue;
                     }
-
-                    if (!exists)
+                    else if (PlaylistItems.ToList().FindIndex(item => item.FullPath == filePath) == -1)
                     {
-                        PlaylistItems.Add(new PlaylistItem() { FileName = Path.GetFileNameWithoutExtension(fileName), FullPath = fileName });
+                        PlaylistItems.Add(
+                            new PlaylistItem()
+                            {
+                                FileName = Path.GetFileNameWithoutExtension(filePath),
+                                FullPath = filePath
+                            }
+                        );
                     }
                 }
             }
@@ -315,7 +351,8 @@ namespace MusicPlayerWPF
             foreach (var item in selectedItems)
             {
                 int targetIndex = PlaylistItems.IndexOf(item);
-                if (targetIndex == root.GetCurrentIndex() && root.GetCurrentState() != PlaybackState.Stopped)
+                if (targetIndex == -1) return;
+                else if (targetIndex == root.GetCurrentIndex() && root.GetCurrentState() != PlaybackState.Stopped)
                 {
                     MessageBox.Show("你不能刪除正在播放的檔案", "錯誤");
                     continue;

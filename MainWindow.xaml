@@ -1,26 +1,17 @@
-﻿<Window x:Class="MusicPlayerWPF.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MusicPlayerWPF"
-        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
-        mc:Ignorable="d"
-        ResizeMode="CanMinimize"
-        Title="MusicPlayerWPF" Height="500" Width="900"
-        Style="{StaticResource MaterialDesignWindow}">
+﻿<Window
+    x:Class="MusicPlayerWPF.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:MusicPlayerWPF"
+    xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+    mc:Ignorable="d"
+    ResizeMode="CanMinimize"
+    Title="MusicPlayerWPF.VLC" Height="550" Width="900"
+    Style="{StaticResource MaterialDesignWindow}">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#2D2D30"/>
-        <SolidColorBrush x:Key="ElementBackgroundBrush" Color="#3E3E40"/>
-        <SolidColorBrush x:Key="ForegroundColorBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#505050"/>
-        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="ButtonHoverBackgroundBrush" Color="#606060"/>
-        <SolidColorBrush x:Key="SliderThumbBackgroundBrush" Color="#505050"/>
-        <SolidColorBrush x:Key="SliderTrackBackgroundBrush" Color="#606060"/>
-        <SolidColorBrush x:Key="SliderTrackProgressBrush" Color="#007ACC"/>
-
         <Style TargetType="StackPanel">
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -30,143 +21,194 @@
             <Setter Property="FontFamily" Value="Noto Sans CJK TC"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Margin" Value="5"/>
-            <!-- <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/> -->
         </Style>
-
-        <!--
-        <Style TargetType="Button">
-            <Setter Property="FontFamily" Value="Noto Sans CJK TC"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBackgroundBrush}"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ButtonHoverBackgroundBrush}"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        -->
-
-        <!-- 
-        <Style TargetType="Slider">
-            <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/>
-            <Setter Property="Background" Value="{DynamicResource SliderTrackBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource SliderTrackBackgroundBrush}"/>
-        </Style>
-        -->
     </Window.Resources>
 
-    <!-- <Grid Background="{DynamicResource ElementBackgroundBrush}"> -->
-    <Grid>
-        <md:Card Padding="32" Margin="16">
-            <StackPanel Orientation="Vertical">
+    <md:Card Padding="32" Margin="16">
+        <StackPanel Orientation="Vertical" MaxWidth="800" ClipToBounds="True">
+            <StackPanel
+                Orientation="Horizontal"
+                HorizontalAlignment="Stretch"
+                Height="Auto" Width="Auto"
+                Margin="0 0 0 15">
+
+                <!--
+                // Stretch property of "Image" Element //
+                // * Uniform: Show the image completely but the longer side will be cut into 200px
+                -->
+                <Image
+                    x:Name="Thumbnail"
+                    MinWidth="200" MinHeight="200"
+                    Width="Auto" Height="Auto"
+                    MaxWidth="320" MaxHeight="300"
+                    Stretch="Uniform"
+                    StretchDirection="Both"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Left"
+                    Margin="0 0 20 0"
+                    Visibility="Collapsed"/>
+
+                <StackPanel
+                    x:Name="MasterContainer"
+                    Orientation="Vertical"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    MaxWidth="400"
+                    ClipToBounds="True">
+                    <Canvas
+                        x:Name="TitleMarquee"
+                        Margin="0 5 0 5"
+                        Height="30">
+                        <Canvas.RenderTransform>
+                            <TranslateTransform x:Name="TitleMarqueeTransform"/>
+                        </Canvas.RenderTransform>
+
+                        <StackPanel
+                            Orientation="Horizontal"
+                            x:Name="NowPlayingTextHolder"
+                            Margin="0 0 0 0">
+                            <TextBlock 
+                                x:Name="NowPlaying"
+                                Text="None"
+                                FontSize="24"
+                                FontWeight="SemiBold"
+                                Visibility="Collapsed"
+                                TextWrapping="NoWrap"
+                                Margin="0 0 0 0"
+                                HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </Canvas>
+                    <Canvas
+                        x:Name="ArtistsMarquee"
+                        Margin="0 5 0 5"
+                        Height="25">
+                        <Canvas.RenderTransform>
+                            <TranslateTransform x:Name="ArtistsMarqueeTransform"/>
+                        </Canvas.RenderTransform>
+
+                        <StackPanel x:Name="ArtistsTextHolder">
+                            <TextBlock
+                                x:Name="ArtistsName"
+                                Text="Unknown"
+                                FontSize="20"
+                                Margin="0 5 0 5"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Left"
+                                ToolTip="出演者"/>
+                        </StackPanel>
+                    </Canvas>
+                    <Canvas
+                        x:Name="AlbumMarquee"
+                        Margin="0 5 0 5"
+                        Height="25">
+                        <Canvas.RenderTransform>
+                            <TranslateTransform x:Name="AlbumMarqueeTransform"/>
+                        </Canvas.RenderTransform>
+
+                        <StackPanel x:Name="AlbumTextHolder">
+                            <TextBlock
+                                x:Name="AlbumName"
+                                Text=""
+                                FontSize="16"
+                                Opacity="0.7"
+                                Margin="0 5 0 5"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Left"
+                                ToolTip="專輯名稱"/>
+                        </StackPanel>
+                    </Canvas>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <TextBlock
+                    x:Name="CurrentTimeText"
+                    Text="00:00"
+                    VerticalAlignment="Center"
+                    Width="70"
+                    TextAlignment="Right"/>
+                <Slider
+                    x:Name="ProgressSlider"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Minimum="0"
+                    Value="0"
+                    Width="400"
+                    PreviewMouseUp="ProgressSlider_PreviewMouseUp"
+                    PreviewMouseDown="ProgressSlider_PreviewMouseDown"/>
+                <TextBlock
+                    x:Name="TotalTimeText"
+                    Text="00:00"
+                    VerticalAlignment="Center"
+                    Width="70"
+                    TextAlignment="Left"/>
 
                 <TextBlock
-                    x:Name="NowPlaying"
-                    Text="正在播放：None"
-                    Margin="5"/>
-                <StackPanel Orientation="Horizontal" Margin="5">
-                    <TextBlock
-                        x:Name="CurrentTimeText"
-                        Text="00:00"
-                        VerticalAlignment="Center"
-                        Width="70"
-                        TextAlignment="Right"/>
-                    <Slider
-                        x:Name="ProgressSlider"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Center"
-                        Minimum="0"
-                        Value="0"
-                        Width="400"
-                        PreviewMouseUp="ProgressSlider_PreviewMouseUp"
-                        PreviewMouseDown="ProgressSlider_PreviewMouseDown"/>
-                    <TextBlock
-                        x:Name="TotalTimeText"
-                        Text="00:00"
-                        VerticalAlignment="Center"
-                        Width="70"
-                        TextAlignment="Left"/>
-
-                    <TextBlock
-                        Text="音量"
-                        VerticalAlignment="Center"
-                        Margin="10"
-                        TextAlignment="Right"/>
-                    <Slider
-                        x:Name="VolumeSlider"
-                        Width="100"
-                        Minimum="0"
-                        Maximum="100"
-                        Value="50"
-                        VerticalAlignment="Center"/>
-                    <TextBlock
-                        Text="0%"
-                        x:Name="VolumeDisplayText"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Left"
-                        Margin="10"
-                        TextAlignment="Left"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="5">
-                    <Button
-                        x:Name="PlayPauseBtn"
-                        ToolTip="播放"
-                        Click="PlayPauseBtn_Click"
-                        Margin="5">
-                        <md:PackIcon Kind="Play"/>
-                    </Button>
-                    <Button
-                        x:Name="ForwardBtn"
-                        ToolTip="下一首"
-                        Click="ForwardBtn_Click"
-                        Margin="5">
-                        <md:PackIcon Kind="FastForward"/>
-                    </Button>
-                    <Button
-                        x:Name="RestartBtn"
-                        ToolTip="從頭播放"
-                        Click="RestartBtn_Click"
-                        Margin="5">
-                        <md:PackIcon Kind="Restart"/>
-                    </Button>
-                    <Button
-                        x:Name="StopBtn"
-                        ToolTip="停止"
-                        Click="StopBtn_Click"
-                        Margin="5">
-                        <md:PackIcon Kind="Stop"/>
-                    </Button>
-                    <Button
-                        x:Name="PlaylistBtn"
-                        ToolTip="佇列"
-                        Click="PlaylistBtn_Click"
-                        Margin="5">
-                        <md:PackIcon Kind="PlaylistMusic"/>
-                    </Button>
-                    <Button
-                        x:Name="SettingsBtn"
-                        ToolTip="設定"
-                        Click="SettingsBtn_Click"
-                        Margin="5">
-                        <md:PackIcon Kind="Settings"/>
-                    </Button>
-                </StackPanel>
-
-                <MediaElement
-                    x:Name="MyMediaElement"
-                    LoadedBehavior="Manual"
-                    Width="400"
-                    Height="300"
+                    Text="音量"
+                    VerticalAlignment="Center"
                     Margin="10"
-                    Visibility="Collapsed"
-                    MediaOpened="MyMediaElement_MediaOpened"
-                    MediaEnded="MyMediaElement_MediaEnded"
-                    MediaFailed="MyMediaElement_MediaFailed"/>
-
+                    TextAlignment="Right"/>
+                <Slider
+                    x:Name="VolumeSlider"
+                    Width="100"
+                    Minimum="0"
+                    Maximum="100"
+                    Value="50"
+                    SmallChange="1"
+                    MouseWheel="VolumeSlider_MouseWheel"
+                    VerticalAlignment="Center"/>
+                <TextBlock
+                    Text="0%"
+                    x:Name="VolumeDisplayText"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Left"
+                    Margin="10"
+                    TextAlignment="Left"/>
             </StackPanel>
-        </md:Card>
-    </Grid>
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <Button
+                    x:Name="PlayPauseBtn"
+                    ToolTip="播放"
+                    Click="PlayPauseBtn_Click"
+                    Margin="5">
+                    <md:PackIcon Kind="Play"/>
+                </Button>
+                <Button
+                    x:Name="ForwardBtn"
+                    ToolTip="下一首"
+                    Click="ForwardBtn_Click"
+                    Margin="5">
+                    <md:PackIcon Kind="FastForward"/>
+                </Button>
+                <Button
+                    x:Name="RestartBtn"
+                    ToolTip="從頭播放"
+                    Click="RestartBtn_Click"
+                    Margin="5">
+                    <md:PackIcon Kind="Restart"/>
+                </Button>
+                <Button
+                    x:Name="StopBtn"
+                    ToolTip="停止"
+                    Click="StopBtn_Click"
+                    Margin="5">
+                    <md:PackIcon Kind="Stop"/>
+                </Button>
+                <Button
+                    x:Name="PlaylistBtn"
+                    ToolTip="佇列"
+                    Click="PlaylistBtn_Click"
+                    Margin="5">
+                    <md:PackIcon Kind="PlaylistMusic"/>
+                </Button>
+                <Button
+                    x:Name="SettingsBtn"
+                    ToolTip="設定"
+                    Click="SettingsBtn_Click"
+                    Margin="5">
+                    <md:PackIcon Kind="Settings"/>
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </md:Card>
 </Window>

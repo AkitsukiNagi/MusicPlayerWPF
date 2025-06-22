@@ -7,7 +7,7 @@
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         ResizeMode="CanMinimize"
-        Title="MusicPlayerWPF - 播放清單" Height="500" Width="600"
+        Title="Playlist" Height="500" Width="600"
         Style="{StaticResource MaterialDesignWindow}">
 
     <Grid>
@@ -20,6 +20,8 @@
         <md:Card Grid.Row="0">
             <ListView
                 x:Name="PlaylistView"
+                AllowDrop="True"
+                Drop="PlaylistView_Drop"
                 Margin="10">
                 <ListView.View>
                     <GridView>
@@ -28,7 +30,7 @@
                         Width="400"
                         DisplayMemberBinding="{Binding FileName}"/>
                         <GridViewColumn
-                        Header="路徑"
+                        Header="完整路徑"
                         Width="Auto"
                         DisplayMemberBinding="{Binding FullPath}"/>
                     </GridView>
