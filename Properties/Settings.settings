@@ -6,7 +6,7 @@
       <Value Profile="(Default)">50</Value>
     </Setting>
     <Setting Name="BaseTheme" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Light</Value>
+      <Value Profile="(Default)">Auto</Value>
     </Setting>
     <Setting Name="PrimaryColor" Type="System.String" Scope="User">
       <Value Profile="(Default)">LightGreen</Value>

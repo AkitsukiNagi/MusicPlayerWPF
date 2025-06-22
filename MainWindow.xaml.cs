@@ -4,6 +4,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -36,8 +37,6 @@ namespace MusicPlayerWPF
 
         private PlaybackState currentState = PlaybackState.Stopped;
         public event EventHandler<string> MediaChanged;
-
-        public ObservableCollection<PlaylistItem> Playlist = new ObservableCollection<PlaylistItem>();
 
         private LibVLC libVLC;
         private LibVLCSharp.Shared.MediaPlayer mediaPlayer;
@@ -73,7 +72,7 @@ namespace MusicPlayerWPF
 
             Title = AppName;
 
-            Playlist.CollectionChanged += Playlist_CollectionChanged;
+            App.GlobalPlaylist.CollectionChanged += Playlist_CollectionChanged;
 
             progressTimer.Interval = TimeSpan.FromMilliseconds(500);
             progressTimer.Tick += ProgressTimer_Tick;
@@ -122,6 +121,54 @@ namespace MusicPlayerWPF
             NowPlaying.Text = "None";
 
             Closing += MainWindow_Closing;
+        }
+
+        //public void HandleStartupArguments(string[] args)
+        //{
+        //    if (args != null && args.Length > 0)
+        //    {
+        //        Dispatcher?.Invoke(() =>
+        //        {
+        //            if (Playlist == null)
+        //            {
+        //                Playlist = new ObservableCollection<PlaylistItem>();
+        //                Playlist.CollectionChanged += Playlist_CollectionChanged;
+        //            }
+
+        //            Import(args);
+
+        //            if (Playlist.Count > 0 && currentState == PlaybackState.Stopped)
+        //            {
+        //                PlayFileFromPath(Playlist.First().FullPath);
+        //            }
+        //        });
+        //    }
+        //}
+
+        public void Import(string[] files)
+        {
+            Debug.WriteLine("接收到命令包含參數" + string.Join(", ", files));
+            foreach (string file in files)
+            {
+                Debug.WriteLine($"正在載入 {file}");
+                if (File.Exists(file) && Constants.SupportFormat.Contains(Path.GetExtension(file)))
+                {
+                    App.GlobalPlaylist.Add(
+                        new PlaylistItem()
+                        {
+                            FileName = Path.GetFileNameWithoutExtension(file),
+                            FullPath = file
+                        }
+                    );
+                    MessageBox.Show($"已將檔案 {file} 加入播放清單中", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else if (!File.Exists(file))
+                    MessageBox.Show($"檔案 {file} 不存在", "發生錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                else if (!Constants.SupportFormat.Contains(Path.GetExtension(file)))
+                    MessageBox.Show($"輸入的檔案類型 {Path.GetExtension(file).ToLower().Substring(1)} 尚未被支援", "發生錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                else
+                    MessageBox.Show($"發生不明錯誤，匯入檔案 {file} 失敗", "發生錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void MediaPlayer_Playing(object sender, EventArgs e)
@@ -184,40 +231,35 @@ namespace MusicPlayerWPF
                 UpdatePlaybackButtons();
                 UpdateMetadataUI();
 
-                if (currentIndex != null && currentIndex >= 0 && currentIndex < Playlist.Count)
+                if (currentIndex != null && currentIndex >= 0 && currentIndex < App.GlobalPlaylist.Count)
                 {
-                    bool isLastItem = (currentIndex == Playlist.Count - 1);
-                    int oldCurrentIndex = (int)currentIndex;
+                    bool isLastItem = (currentIndex == App.GlobalPlaylist.Count - 1);
 
-                    Playlist.RemoveAt((int)currentIndex);
+                    App.GlobalPlaylist.RemoveAt((int)currentIndex);
 
-                    if (Playlist.Count == 0)
+                    if (isLastItem)
                     {
-                        StopBtn_Click(this, new RoutedEventArgs());
-                        return;
-                    }
-                    else if (isLastItem)
-                    {
-                        if (Playlist.Count > 0)
+                        if (App.GlobalPlaylist.Count > 0)
                             currentIndex = 0;
                         else
+                        {
                             currentIndex = null;
+                        }
                     }
                 }
-                else if (Playlist.Count == 0)
-                {
-                    StopBtn_Click(this, new RoutedEventArgs());
-                    return;
-                }
+                else currentIndex = null;
 
-                if (currentIndex != null && currentIndex >= 0 && currentIndex < Playlist.Count && currentState != PlaybackState.Stopped)
-                {
-                    PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
-                }
+                if (currentIndex != null && currentIndex >= 0 && currentIndex < App.GlobalPlaylist.Count && currentState != PlaybackState.Stopped)
+                    PlayFileFromPath(App.GlobalPlaylist[(int)currentIndex].FullPath);
                 else
                 {
-                    StopBtn_Click(this, new RoutedEventArgs());
+                    currentState = PlaybackState.Stopped;
+                    audioFilePath = null;
+                    currentIndex = null;
+                    UpdateMetadataUI();
+                    UpdateProgressUI();
                 }
+                UpdatePlaybackButtons();
             });
         }
 
@@ -226,7 +268,7 @@ namespace MusicPlayerWPF
             if (playlistWindow != null)
             {
                 //playlistWindow.Sync_Playlist(Playlist);
-                Playlist = playlistWindow.GetPlaylist();
+                App.GlobalPlaylist = playlistWindow.GetPlaylist();
             }
 
             UpdatePlaybackButtons();
@@ -234,21 +276,23 @@ namespace MusicPlayerWPF
 
         private void ProgressSlider_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (mediaPlayer != null && mediaPlayer.IsPlaying)
+            if (mediaPlayer != null && currentState != PlaybackState.Stopped)
             {
                 float newPos = (float)(ProgressSlider.Value / ProgressSlider.Maximum);
                 mediaPlayer.Position = newPos;
 
                 UpdateProgressUI();
                 isUserDraggingSlider = false;
-                progressTimer?.Start();
+                if (mediaPlayer.IsPlaying)
+                    progressTimer?.Start();
             }
         }
 
         private void ProgressSlider_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             isUserDraggingSlider = true;
-            progressTimer?.Stop();
+            if (mediaPlayer.IsPlaying && currentState != PlaybackState.Stopped)
+                progressTimer?.Stop();
         }
 
         private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -267,34 +311,40 @@ namespace MusicPlayerWPF
         {
             if (e.Delta > 0 && VolumeSlider.Value != VolumeSlider.Maximum)
             {
-                VolumeSlider.Value += VolumeSlider.SmallChange;
+                if (VolumeSlider.Value + VolumeSlider.SmallChange * 5 <= VolumeSlider.Maximum)
+                    VolumeSlider.Value += VolumeSlider.SmallChange * 5;
+                else
+                    VolumeSlider.Value = VolumeSlider.Maximum;
             }
             else if (e.Delta < 0 && VolumeSlider.Value != VolumeSlider.Minimum)
             {
-                VolumeSlider.Value -= VolumeSlider.SmallChange;
+                if (VolumeSlider.Value - VolumeSlider.SmallChange * 5 >= VolumeSlider.Minimum)
+                    VolumeSlider.Value -= VolumeSlider.SmallChange * 5;
+                else
+                    VolumeSlider.Value = VolumeSlider.Minimum;
             }
             e.Handled = true;
         }
 
         private void PlayPauseBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (audioFilePath == null && currentState == PlaybackState.Stopped && Playlist.Count == 0)
+            if (audioFilePath == null && currentState == PlaybackState.Stopped && App.GlobalPlaylist.Count == 0)
             {
                 MessageBox.Show("沒有檔案可供播放", "播放失敗");
                 return;
             }
 
-            if (audioFilePath == null && Playlist.Count > 0 && currentState == PlaybackState.Stopped)
+            if (audioFilePath == null && App.GlobalPlaylist.Count > 0 && currentState == PlaybackState.Stopped)
             {
                 currentIndex = 0;
-                PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
+                PlayFileFromPath(App.GlobalPlaylist[(int)currentIndex].FullPath);
                 return;
             }
 
-            if (audioFilePath == null && Playlist.Count > 0 && currentState == PlaybackState.Stopped)
+            if (audioFilePath == null &&    App.GlobalPlaylist.Count > 0 && currentState == PlaybackState.Stopped)
             {
                 currentIndex = 0;
-                PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
+                PlayFileFromPath(App.GlobalPlaylist[(int)currentIndex].FullPath);
             }
 
             if (currentState == PlaybackState.Paused)
@@ -329,15 +379,28 @@ namespace MusicPlayerWPF
 
         private void Stop()
         {
-            ThreadPool.QueueUserWorkItem(_ => mediaPlayer?.Stop());
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                if (mediaPlayer != null)
+                {
+                    try
+                    {
+                        mediaPlayer.Stop();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine(ex.Message);
+                    }
+                }
+            });
             if (mediaPlayer != null)
             {
                 progressTimer?.Stop();
 
-                if (currentIndex != null && currentIndex >= 0 && currentIndex < Playlist.Count)
+                if (currentIndex != null && currentIndex >= 0 && currentIndex <     App.GlobalPlaylist.Count)
                 {
-                    Playlist.RemoveAt((int)currentIndex);
-                    if (currentIndex > Playlist.Count) currentIndex = null;
+                    App.GlobalPlaylist.RemoveAt((int)currentIndex);
+                    if (currentIndex > App.GlobalPlaylist.Count) currentIndex = null;
                 }
             }
             UpdateMetadataUI();
@@ -369,11 +432,11 @@ namespace MusicPlayerWPF
 
         private void PlaylistWindow_PlaylistUpdated(object sender, ObservableCollection<PlaylistItem> newPlaylist)
         {
-            Playlist = newPlaylist;
+            App.GlobalPlaylist = newPlaylist;
 
-            if (currentState == PlaybackState.Stopped && Playlist.Count > 0)
+            if (currentState == PlaybackState.Stopped && App.GlobalPlaylist.Count > 0)
             {
-                PlayFileFromPath(Playlist[0].FullPath);
+                PlayFileFromPath(App.GlobalPlaylist[0].FullPath);
             }
             UpdatePlaybackButtons();
         }
@@ -392,7 +455,7 @@ namespace MusicPlayerWPF
             playlistWindow = null;
         }
 
-        private void PlayFileFromPath(string filePath)
+        public void PlayFileFromPath(string filePath)
         {
             if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             {
@@ -419,7 +482,7 @@ namespace MusicPlayerWPF
                         mediaPlayer.Play(media);
                     }
 
-                    currentIndex = Playlist.ToList().FindIndex(item => item.FullPath == audioFilePath);
+                    currentIndex = App.GlobalPlaylist.ToList().FindIndex(item => item.FullPath == audioFilePath);
                 }
                 catch (Exception ex)
                 {
@@ -459,9 +522,9 @@ namespace MusicPlayerWPF
                     Thumbnail.Source = image;
                 }
                 Thumbnail.Visibility = Visibility.Visible;
-                marqueeVisibleWidth = 550.0;
+                marqueeVisibleWidth = (Width * 0.8) - Thumbnail.DesiredSize.Width - 20.0;
             }
-            else marqueeVisibleWidth = 800.0;
+            else marqueeVisibleWidth = Width * 0.8;
             MasterContainer.MaxWidth = marqueeVisibleWidth;
 
             // Title
@@ -476,7 +539,7 @@ namespace MusicPlayerWPF
             NowPlayingTextHolder.Arrange(new Rect(0, 0, NowPlayingTextHolder.DesiredSize.Width, NowPlayingTextHolder.DesiredSize.Height));
 
             double singleTextWidth = NowPlaying.DesiredSize.Width;
-            TitleMarqueeStoryboard.Stop(TitleMarquee);
+            TitleMarqueeStoryboard?.Stop(TitleMarquee);
             TitleMarqueeTransform.X = 0;
             TitleMarquee.Width = marqueeVisibleWidth;
             TitleMarquee.MaxWidth = marqueeVisibleWidth;
@@ -494,7 +557,7 @@ namespace MusicPlayerWPF
             }
             else
             {
-                TitleMarqueeStoryboard.Stop(TitleMarquee);
+                TitleMarqueeStoryboard?.Stop(TitleMarquee);
                 TitleMarqueeTransform.X = 0;
                 NowPlaying.TextWrapping = TextWrapping.NoWrap;
             }
@@ -511,7 +574,7 @@ namespace MusicPlayerWPF
             ArtistsTextHolder.Arrange(new Rect(0, 0, ArtistsTextHolder.DesiredSize.Width, ArtistsTextHolder.DesiredSize.Height));
 
             singleTextWidth = ArtistsName.DesiredSize.Width;
-            ArtistsMarqueeStoryboard.Stop(ArtistsMarquee);
+            ArtistsMarqueeStoryboard?.Stop(ArtistsMarquee);
             ArtistsMarqueeTransform.X = 0;
             ArtistsMarquee.Width = marqueeVisibleWidth;
             ArtistsMarquee.MaxWidth = marqueeVisibleWidth;
@@ -528,7 +591,7 @@ namespace MusicPlayerWPF
             }
             else
             {
-                ArtistsMarqueeStoryboard.Stop(ArtistsMarquee);
+                ArtistsMarqueeStoryboard?.Stop(ArtistsMarquee);
                 ArtistsMarqueeTransform.X = 0;
                 ArtistsName.TextWrapping = TextWrapping.NoWrap;
             }
@@ -545,7 +608,7 @@ namespace MusicPlayerWPF
             AlbumTextHolder.Arrange(new Rect(0, 0, AlbumTextHolder.DesiredSize.Width, AlbumTextHolder.DesiredSize.Height));
 
             singleTextWidth = AlbumName.DesiredSize.Width;
-            AlbumMarqueeStoryboard.Stop(AlbumMarquee);
+            AlbumMarqueeStoryboard?.Stop(AlbumMarquee);
             AlbumMarqueeTransform.X = 0;
             AlbumMarquee.Width = marqueeVisibleWidth;
             AlbumMarquee.MaxWidth = marqueeVisibleWidth;
@@ -561,7 +624,7 @@ namespace MusicPlayerWPF
             }
             else
             {
-                AlbumMarqueeStoryboard.Stop(AlbumMarquee);
+                AlbumMarqueeStoryboard?.Stop(AlbumMarquee);
                 AlbumMarqueeTransform.X = 0;
                 AlbumName.TextWrapping = TextWrapping.NoWrap;
             }
@@ -572,17 +635,17 @@ namespace MusicPlayerWPF
             NowPlaying.Text = "";
             TitleMarquee.Visibility = Visibility.Collapsed;
             NowPlaying.Visibility = Visibility.Collapsed;
-            TitleMarqueeStoryboard.Stop();
+            TitleMarqueeStoryboard?.Stop();
 
             ArtistsName.Text = "";
             ArtistsMarquee.Visibility = Visibility.Collapsed;
             ArtistsName.Visibility = Visibility.Collapsed;
-            ArtistsMarqueeStoryboard.Stop();
+            ArtistsMarqueeStoryboard?.Stop();
 
             AlbumName.Text = "";
             AlbumMarquee.Visibility = Visibility.Collapsed;
             AlbumName.Visibility = Visibility.Collapsed;
-            AlbumMarqueeStoryboard.Stop();
+            AlbumMarqueeStoryboard?.Stop();
 
             Thumbnail.Source = null;
             Thumbnail.Visibility = Visibility.Collapsed;
@@ -611,10 +674,10 @@ namespace MusicPlayerWPF
             //bool isPaused = (isMediaLoaded && MyMediaElement.CanPause && !isPlaying && MyMediaElement.Position < MyMediaElement.NaturalDuration.TimeSpan);
             //bool isStopped = (MyMediaElement == null || MyMediaElement.Source == null || (isPlaying && !isPaused && (MyMediaElement.Position == TimeSpan.Zero || MyMediaElement.Position >= MyMediaElement.NaturalDuration.TimeSpan)));
 
-            PlayPauseBtn.IsEnabled = isFileLoaded || currentState == PlaybackState.Paused || Playlist.Count > 0;
-            ForwardBtn.IsEnabled = (Playlist.Count > 1) && currentState != PlaybackState.Stopped && currentIndex < Playlist.Count - 1;
+            PlayPauseBtn.IsEnabled = isFileLoaded || currentState == PlaybackState.Paused || App.GlobalPlaylist.Count > 0;
+            ForwardBtn.IsEnabled = (App.GlobalPlaylist.Count > 1) && currentState != PlaybackState.Stopped && currentIndex < App.GlobalPlaylist.Count - 1;
             RestartBtn.IsEnabled = isFileLoaded && currentState != PlaybackState.Stopped;
-            StopBtn.IsEnabled = isFileLoaded && currentState != PlaybackState.Stopped && currentIndex < Playlist.Count - 1;
+            StopBtn.IsEnabled = isFileLoaded && currentState != PlaybackState.Stopped && currentIndex < App.GlobalPlaylist.Count - 1;
 
             if (currentState == PlaybackState.Playing)
             {
@@ -695,7 +758,20 @@ namespace MusicPlayerWPF
                 mediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
                 mediaPlayer.Playing -= MediaPlayer_Playing;
 
-                ThreadPool.QueueUserWorkItem(_ => mediaPlayer?.Stop());
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    if (mediaPlayer != null)
+                    {
+                        try
+                        {
+                            mediaPlayer.Stop();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Error.WriteLine(ex.Message);
+                        }
+                    }
+                });
                 mediaPlayer.Dispose();
                 mediaPlayer = null;
 
@@ -721,13 +797,13 @@ namespace MusicPlayerWPF
 
         private void ForwardBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (Playlist.Count > 0 && currentIndex != null && currentIndex < Playlist.Count - 1)
+            if (App.GlobalPlaylist.Count > 0 && currentIndex != null && currentIndex < App.GlobalPlaylist.Count - 1)
             {
                 Stop();
                 currentIndex += 1;
-                PlayFileFromPath(Playlist[(int)currentIndex].FullPath);
+                PlayFileFromPath(App.GlobalPlaylist[(int)currentIndex].FullPath);
             }
-            else if (Playlist.Count > 0 && currentIndex != null && currentIndex == Playlist.Count - 1)
+            else if (App.GlobalPlaylist.Count > 0 && currentIndex != null && currentIndex == App.GlobalPlaylist.Count - 1)
             {
                 StopBtn_Click(this, new RoutedEventArgs());
             }

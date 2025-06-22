@@ -9,6 +9,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace MusicPlayerWPF
 {
@@ -32,10 +33,6 @@ namespace MusicPlayerWPF
         private MainWindow root;
 
         private ObservableCollection<PlaylistItem> PlaylistItems { get; set; }
-        private List<string> supportFormat = new List<string>()
-        {
-            ".mp3", ".ogg", ".flac", ".m4a", ".wav", ".opus", ".webm"
-        };
 
         public ObservableCollection<PlaylistItem> GetPlaylist() => PlaylistItems;
 
@@ -45,7 +42,7 @@ namespace MusicPlayerWPF
 
             Title = "【播放清單】" + root.AppName;
 
-            PlaylistItems = root.Playlist;
+            PlaylistItems = App.GlobalPlaylist;
             PlaylistItems.CollectionChanged += PlaylistItems_CollectionChanged;
             PlaylistView.ItemsSource = PlaylistItems;
 
@@ -80,6 +77,14 @@ namespace MusicPlayerWPF
         private void PlaylistView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (e.ChangedButton != MouseButton.Left) return;
+
+            DependencyObject dpObj = e.OriginalSource as DependencyObject;
+            while (dpObj != null && !(dpObj is ListViewItem))
+            {
+                if (dpObj == sender) return;
+                dpObj = VisualTreeHelper.GetParent(dpObj);
+            }
+
             if (PlaylistView.SelectedItem is PlaylistItem selectedItem)
             {
                 int newIndex = FindIndex(selectedItem);
@@ -99,7 +104,7 @@ namespace MusicPlayerWPF
 
             foreach (string file in files)
             {
-                if (!supportFormat.Contains(Path.GetExtension(file)))
+                if (!Constants.SupportFormat.Contains(Path.GetExtension(file)))
                 {
                     MessageBox.Show($"檔案 {Path.GetFileName(file).ToLower()} 的格式 {Path.GetExtension(file).Substring(1).ToLower()} 並未被支援", "發生錯誤");
                     continue;
@@ -110,7 +115,8 @@ namespace MusicPlayerWPF
                         {
                             FileName = Path.GetFileNameWithoutExtension(file),
                             FullPath = file,
-                        });
+                        }
+                    );
             }
         }
 
@@ -320,14 +326,20 @@ namespace MusicPlayerWPF
             {
                 foreach (string filePath in openFileDialog.FileNames)
                 {
-                    if (!supportFormat.Contains(Path.GetExtension(filePath)))
+                    if (!Constants.SupportFormat.Contains(Path.GetExtension(filePath)))
                     {
                         MessageBox.Show($"檔案 {Path.GetFileName(filePath)} 的格式並未被支援", "發生錯誤");
                         continue;
                     }
                     else if (PlaylistItems.ToList().FindIndex(item => item.FullPath == filePath) == -1)
                     {
-                        PlaylistItems.Add(new PlaylistItem() { FileName = Path.GetFileNameWithoutExtension(filePath), FullPath = filePath });
+                        PlaylistItems.Add(
+                            new PlaylistItem()
+                            {
+                                FileName = Path.GetFileNameWithoutExtension(filePath),
+                                FullPath = filePath
+                            }
+                        );
                     }
                 }
             }

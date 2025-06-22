@@ -15,6 +15,10 @@ namespace MusicPlayerWPF
     {
         public List<string> AvailableColors { get; set; }
         public event EventHandler<CancelEventArgs> WindowClosedEvent;
+        public List<string> Themes = new List<string>
+        {
+            "Auto", "Light", "Dark"
+        };
 
         public SettingsWindow(MainWindow root)
         {
@@ -25,9 +29,8 @@ namespace MusicPlayerWPF
             DataContext = this;
             AvailableColors = GetMaterialDesignColorNames();
 
-            ThemeSwitch.IsChecked = Properties.Settings.Default.BaseTheme == "Dark";
-            ThemeSwitch.Checked += ThemeSwitch_Checked;
-            ThemeSwitch.Unchecked += ThemeSwitch_Unchecked;
+            ThemeSwitch.SelectedItem = Properties.Settings.Default.BaseTheme;
+            ThemeSwitch.ItemsSource = Themes;
 
             PrimaryColorCombo.SelectedValue = Properties.Settings.Default.PrimaryColor;
             SecondaryColorCombo.SelectedValue = Properties.Settings.Default.SecondaryColor;
@@ -37,6 +40,12 @@ namespace MusicPlayerWPF
 
         private void SettingsWindow_Closing(object sender, CancelEventArgs e)
         {
+            Properties.Settings.Default.BaseTheme = ThemeSwitch.SelectedItem.ToString();
+            Properties.Settings.Default.PrimaryColor = PrimaryColorCombo.SelectedItem.ToString();
+            Properties.Settings.Default.SecondaryColor = SecondaryColorCombo.SelectedItem.ToString();
+            Properties.Settings.Default.Save();
+            App.SetTheme();
+
             WindowClosedEvent?.Invoke(this, e);
         }
 
@@ -49,20 +58,14 @@ namespace MusicPlayerWPF
             return colors;
         }
 
-        private void ThemeSwitch_Checked(object sender, RoutedEventArgs e)
+        private void ThemeSwitch_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            Properties.Settings.Default.BaseTheme = "Dark";
-            Properties.Settings.Default.Save();
-
-            App.SetTheme();
-        }
-
-        private void ThemeSwitch_Unchecked(object sender, RoutedEventArgs e)
-        {
-            Properties.Settings.Default.BaseTheme = "Light";
-            Properties.Settings.Default.Save();
-
-            App.SetTheme();
+            if (ThemeSwitch.SelectedItem is string selected)
+            {
+                Properties.Settings.Default.BaseTheme = selected;
+                Properties.Settings.Default.Save();
+                App.SetTheme();
+            }
         }
 
         private void PrimaryColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -88,11 +91,6 @@ namespace MusicPlayerWPF
         }
 
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
-
-        public void Close_Window()
         {
             Close();
         }

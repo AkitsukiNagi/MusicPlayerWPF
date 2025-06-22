@@ -8,7 +8,7 @@
     xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
     mc:Ignorable="d"
     ResizeMode="CanMinimize"
-    Title="MusicPlayerWPF.VLC" Height="500" Width="900"
+    Title="MusicPlayerWPF.VLC" Height="550" Width="900"
     Style="{StaticResource MaterialDesignWindow}">
 
     <Window.Resources>
@@ -25,7 +25,7 @@
     </Window.Resources>
 
     <md:Card Padding="32" Margin="16">
-        <StackPanel Orientation="Vertical">
+        <StackPanel Orientation="Vertical" MaxWidth="800" ClipToBounds="True">
             <StackPanel
                 Orientation="Horizontal"
                 HorizontalAlignment="Stretch"
@@ -40,7 +40,7 @@
                     x:Name="Thumbnail"
                     MinWidth="200" MinHeight="200"
                     Width="Auto" Height="Auto"
-                    MaxWidth="320" MaxHeight="320"
+                    MaxWidth="320" MaxHeight="300"
                     Stretch="Uniform"
                     StretchDirection="Both"
                     VerticalAlignment="Center"
@@ -52,7 +52,7 @@
                     x:Name="MasterContainer"
                     Orientation="Vertical"
                     VerticalAlignment="Center"
-                    HorizontalAlignment="Left"
+                    HorizontalAlignment="Center"
                     MaxWidth="400"
                     ClipToBounds="True">
                     <Canvas
@@ -88,12 +88,13 @@
 
                         <StackPanel x:Name="ArtistsTextHolder">
                             <TextBlock
-                            x:Name="ArtistsName"
-                            Text="Unknown"
-                            FontSize="20"
-                            Margin="0 5 0 5"
-                            Visibility="Collapsed"
-                            ToolTip="出演者"/>
+                                x:Name="ArtistsName"
+                                Text="Unknown"
+                                FontSize="20"
+                                Margin="0 5 0 5"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Left"
+                                ToolTip="出演者"/>
                         </StackPanel>
                     </Canvas>
                     <Canvas
@@ -112,6 +113,7 @@
                                 Opacity="0.7"
                                 Margin="0 5 0 5"
                                 Visibility="Collapsed"
+                                HorizontalAlignment="Left"
                                 ToolTip="專輯名稱"/>
                         </StackPanel>
                     </Canvas>
