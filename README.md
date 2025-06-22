@@ -16,6 +16,7 @@
 | .m4a | ✔ | ✔ | 
 | .ogg | ✘ | ✔ |
 | .flac | △ | ✔ |
+| .webm | ✘ | ✔ |
 | Other | △ [^1] | ✘[^2] |
 [^1]: Unknown
 [^2]: Because of newly imported "type filter", other format even is playable will be blocked by the filter.
